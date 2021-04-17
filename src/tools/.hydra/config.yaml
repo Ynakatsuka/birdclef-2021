@@ -1,0 +1,228 @@
+project: ranzcr-clip-catheter-line-classification
+name: ranzcr
+version: 1
+run: train
+seed: 42
+catalog:
+  data_dir: data/input/
+  train_path: data/input/train.csv
+  preprocessed_train_path: data/input/preprocessed_train.csv
+  train_annotation_path: data/input/train_annotation.csv
+  preprocessed_train_annotation_path: data/input/preprocessed_train_annotation.csv
+env:
+  run_dir: ./
+  save_dir: data/output
+  gpus:
+  - 0
+  - 1
+trainer:
+  experiment_name: exp000
+  dir: ${env.save_dir}/models
+  train:
+    batch_size: 32
+    backbone_lr_ratio: null
+    encoder_lr_ratio: null
+  evaluation:
+    batch_size: 64
+    save_prediction: true
+    dirpath: ${env.save_dir}/predictions/oof/
+    name: trainer_${trainer.experiment_name}_aug_${augmentation.experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy
+  trainer:
+    resume_from_checkpoint: null
+    max_epochs: 20
+    check_val_every_n_epoch: 1
+    accumulate_grad_batches: 1
+    amp_backend: native
+    amp_level: O2
+    precision: 16
+    gpus: ${env.gpus}
+    accelerator: dp
+    sync_batchnorm: true
+    auto_lr_find: false
+    auto_scale_batch_size: false
+    benchmark: true
+    deterministic: true
+  inference:
+    dirpath: ${trainer.dir}
+    filename: trainer_${trainer.experiment_name}_aug_${augmentation.experiment_name}_fold_${dataset.dataset.params.idx_fold}_{epoch:03d}.pkl
+  logger:
+    _target_: pytorch_lightning.loggers.WandbLogger
+    project: ${project}
+  callbacks:
+    ModelCheckpoint:
+      _target_: pytorch_lightning.callbacks.ModelCheckpoint
+      monitor: val_loss
+      save_last: false
+      save_top_k: 5
+      dirpath: ${trainer.dir}
+      filename: trainer_${trainer.experiment_name}_aug_${augmentation.experiment_name}_fold_${dataset.dataset.params.idx_fold}_{epoch:03d}
+  model:
+    name: resnet18
+    params:
+      num_classes: 11
+      pretrained: true
+    last_linear:
+      replace: true
+      dropout: 0.5
+      pool_type: null
+      use_seblock: false
+      training: false
+      params:
+        max_epochs: 4
+        check_val_every_n_epoch: 3
+  loss:
+    name: BCEWithLogitsLoss
+  metrics:
+    multilabel_auroc:
+      name: multilabel_auroc
+      params:
+        num_classes: 11
+        class_names:
+        - ETT_a
+        - ETT_b
+        - ETT_n
+        - NGT_a
+        - NGT_b
+        - NGT_i
+        - NGT_n
+        - CVC_a
+        - CVC_b
+        - CVC_n
+        - SGC
+  optimizer:
+    name: AdamW
+    params:
+      lr: 0.001
+      weight_decay: 0.01
+  scheduler:
+    name: OneCycleLR
+    params:
+      epochs: 2
+      max_lr: 0.00025
+      pct_start: 0.033
+      steps_per_epoch: 568
+  lightning_module:
+    name: LightningModuleBase
+  hooks:
+    post_forward:
+      name: SigmoidPostForwardHook
+fold:
+  split001:
+    n_splits: 5
+    random_state: ${seed}
+    shuffle: true
+augmentation:
+  experiment_name: exp000
+  height: 512
+  width: 512
+  tta: 1
+  train:
+  - name: HorizontalFlip
+    params:
+      p: 0.5
+  - name: OneOf
+    member:
+    - name: RandomContrast
+      params: null
+    - name: RandomGamma
+      params: null
+    - name: RandomBrightness
+      params: null
+    params:
+      p: 0.3
+  - name: OneOf
+    member:
+    - name: ElasticTransform
+      params:
+        alpha: 120
+        sigma: 6
+        alpha_affine: 3.6
+    - name: GridDistortion
+      params: null
+    - name: OpticalDistortion
+      params: null
+    params:
+      p: 0.3
+  - name: ShiftScaleRotate
+    params: null
+  - name: Resize
+    params:
+      p: 1.0
+      height: ${augmentation.height}
+      width: ${augmentation.width}
+  - name: Normalize
+    params:
+      p: 1.0
+      mean:
+      - 0.86821552
+      - 0.73319595
+      - 0.81884091
+      std:
+      - 0.37468367
+      - 0.5095725
+      - 0.4131941
+  validation:
+  - name: Resize
+    params:
+      p: 1.0
+      height: ${augmentation.height}
+      width: ${augmentation.width}
+  - name: Normalize
+    params:
+      p: 1.0
+      mean:
+      - 0.86821552
+      - 0.73319595
+      - 0.81884091
+      std:
+      - 0.37468367
+      - 0.5095725
+      - 0.4131941
+  test:
+  - name: Resize
+    params:
+      p: 1.0
+      height: ${augmentation.height}
+      width: ${augmentation.width}
+  - name: Normalize
+    params:
+      p: 1.0
+      mean:
+      - 0.86821552
+      - 0.73319595
+      - 0.81884091
+      std:
+      - 0.37468367
+      - 0.5095725
+      - 0.4131941
+dataset:
+  dataset:
+    name: RANZCRDataset
+    params:
+      data_dir: data/input
+      csv_filename: preprocessed_train.csv
+      image_column: StudyInstanceUID
+      target_column:
+      - ETT - Abnormal
+      - ETT - Borderline
+      - ETT - Normal
+      - NGT - Abnormal
+      - NGT - Borderline
+      - NGT - Incompletely Imaged
+      - NGT - Normal
+      - CVC - Abnormal
+      - CVC - Borderline
+      - CVC - Normal
+      - Swan Ganz Catheter Present
+      num_fold: 5
+      idx_fold: 0
+    splits:
+    - mode: train
+      split: train
+    - mode: validation
+      split: validation
+    - mode: test
+      split: test
+  transform:
+    name: ranzcr_transform
+    num_preprocessor: 24

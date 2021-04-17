@@ -1,0 +1,16 @@
+easydict>=1.9
+efficientnet-pytorch>=0.7.0
+pretrainedmodels>=0.7.4
+jupyterlab>=2.2.9
+iterative-stratification>=0.1.6
+hydra-core>=1.0.6
+timm>=0.4.5
+pytorch-lightning>=1.2.7
+pytorch-lightning-bolts>=0.3.2
+torch-optimizer>=0.1.0
+pytorch-gradcam>=0.2.1
+microsoftvision>=1.0.5
+resnest>=0.0.5
+jpeg4py>=0.1.4
+torchlibrosa>=0.0.9
+torchxrayvision>=0.0.25

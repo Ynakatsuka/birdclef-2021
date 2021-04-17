@@ -1,0 +1,9 @@
+# @package _group_
+experiment_name: 'exp001'
+data_dir: 'data/input'
+csv_filename: 'preprocessed_train_${fold.experiment_name}.csv'
+fold:
+  _target_: iterstrat.ml_stratifiers.MultilabelStratifiedKFold
+  n_splits: 5
+  random_state: ${seed}
+  shuffle: True

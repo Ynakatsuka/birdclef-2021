@@ -1,0 +1,16 @@
+version: "2.3"
+services:
+  birdclef:
+    build: docker/
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    container_name: b1
+    volumes:
+      - $PWD:/home/working
+    working_dir: /home/working
+    ports:
+      - 8899:8899
+    shm_size: 64gb
+    command: jupyter notebook --ip=0.0.0.0 --allow-root --no-browser --port 8899

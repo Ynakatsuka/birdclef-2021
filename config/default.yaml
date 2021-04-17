@@ -1,0 +1,31 @@
+# @package _global_
+
+project: birdclef-2021
+version: 1
+run: train
+seed: 42
+
+# disable python warnings if they annoy you
+disable_warnings: True
+
+# pretty print config at the start of the run using Rich library
+print_config: False
+
+# working path
+work_dir: ${hydra:runtime.cwd}
+data_dir: ${work_dir}/data/
+save_dir: ${work_dir}/data/output
+
+experiment_name: ${hydra:job.override_dirname}
+
+defaults:
+  - augmentation: default
+  - dataset: default
+  - fold: default
+  - trainer: default
+  - competition: default
+
+hydra:
+    # output paths for hydra logs
+    run:
+        dir: ${work_dir}/logs/
