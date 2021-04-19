@@ -6,6 +6,7 @@ data/*
 logs/
 notebook/
 submission/*
+.vscode/*
 
 # General
 .DS_Store
