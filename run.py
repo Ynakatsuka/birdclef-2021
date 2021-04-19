@@ -1,7 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
+import os
 import pprint
 import sys
+import warnings
 
 import hydra
 import pytorch_lightning as pl
@@ -36,13 +38,16 @@ def swa(config):
 
 @hydra.main(config_path="config", config_name="default")
 def main(config: DictConfig) -> None:
-    if config.disable_warnings:
-        import warnings
+    if hasattr(config, "numexpr_max_threads"):
+        os.environ["NUMEXPR_MAX_THREADS"] = config.numexpr_max_threads
 
+    if config.disable_warnings:
         warnings.filterwarnings("ignore")
 
     if config.print_config:
-        pprint.PrettyPrinter(indent=2).pprint(OmegaConf.to_container(config))
+        pprint.PrettyPrinter(indent=2).pprint(
+            OmegaConf.to_container(config, resolve=True)
+        )
 
     if config.run in ("train", "inference", "swa"):
         # initialize torch

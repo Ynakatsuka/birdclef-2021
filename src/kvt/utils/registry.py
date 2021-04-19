@@ -57,9 +57,9 @@ def build_from_config(config, registry, default_args=None):
         default_args (dict, optional): Default initialization argments.
     """
     if isinstance(config, DictConfig):
-        config = OmegaConf.to_container(config)
+        config = OmegaConf.to_container(config, resolve=True)
     if isinstance(default_args, DictConfig):
-        default_args = OmegaConf.to_container(default_args)
+        default_args = OmegaConf.to_container(default_args, resolve=True)
 
     assert isinstance(config, dict) and "name" in config
     assert isinstance(default_args, dict) or default_args is None

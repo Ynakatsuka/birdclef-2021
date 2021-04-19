@@ -2,10 +2,13 @@
 dataset:
   name: 'WaveformDataset'
   params:
-    csv_filename: '${fold.csv_filename}'
-    image_column: ''
-    group_column: ''
+    csv_filename: ${fold.csv_filename}
+    image_column: 'filename'
     target_column: ${competition.target_column}
+    target_unique_values: ${competition.target_unique_values}
+    input_dir: ${input_dir}
+    period: 20
+    sample_rate: 32000
     num_fold: 5
     idx_fold: 0
   splits:
@@ -17,5 +20,5 @@ dataset:
       split: 'test'
 
 transform:
-  name: 'base_transform'
+  name: 'base_audio_transform'
   num_preprocessor: 24

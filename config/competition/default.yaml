@@ -1,5 +1,7 @@
 # @package _group_
-target_columns: ['acafly', 'acowoo', 'aldfly', 'ameavo', 'amecro',
+train_path: '${input_dir}/train_metadata.csv'
+target_column: primary_label
+target_unique_values: ['acafly', 'acowoo', 'aldfly', 'ameavo', 'amecro',
         'amegfi', 'amekes', 'amepip', 'amered', 'amerob',
         'amewig', 'amtspa', 'andsol1', 'annhum', 'astfly',
         'azaspi1', 'babwar', 'baleag', 'balori', 'banana',

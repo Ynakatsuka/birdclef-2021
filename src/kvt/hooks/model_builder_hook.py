@@ -103,6 +103,17 @@ def replace_last_linear(
     return model
 
 
+def update_input_layer(model, in_channels):
+    for l in model.children():
+        assert l.bias is None
+        data = torch.mean(l.weight, axis=1).unsqueeze(1)
+        data = torch.tile(data, (1, in_channels, 1, 1))
+        l.weight.data = data
+        break
+
+    return model
+
+
 class ModelBuilderHookBase(object):
     __metaclass__ = abc.ABCMeta
 
@@ -122,11 +133,8 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
         #######################################################################
         # sound event detection models
         #######################################################################
-        if BACKBONES.get(config.name) == "SED":
-            backbone = build_from_config(config.backbone, BACKBONES)
-            in_features = analyze_in_features(backbone)
-            args = {"backbone": backbone, "in_features": in_features}
-            model = build_from_config(config, MODELS, args)
+        if config.name == "SED":
+            model = self.build_sound_event_detection_model(config)
 
         #######################################################################
         # segmentation models
@@ -135,8 +143,9 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
             model = build_from_config(config, MODELS)
 
         # load pretrained model trained on external data
-        print(config)
-        if isinstance(config.params.pretrained, str):
+        if hasattr(config.params, "pretrained") and isinstance(
+            config.params.pretrained, str
+        ):
             path = config.params.pretrained
             print(f"Loading pretrained trained from: {path}")
             if os.path.exists(path):
@@ -165,7 +174,7 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
             # loading pretraining model fails
             # To avoid this issue, load as default num_classes
             pretrained_config = copy.deepcopy(config)
-            pretrained_config = OmegaConf.to_container(pretrained_config)
+            pretrained_config = OmegaConf.to_container(pretrained_config, resolve=True)
             del pretrained_config["params"]["num_classes"]
             model = build_from_config(pretrained_config, BACKBONES)
         else:
@@ -181,4 +190,24 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
                 config.last_linear.use_seblock,
             )
 
+        return model
+
+    def build_sound_event_detection_model(self, config):
+        # build model
+        backbone_config = {"name": config.params.backbone.name}
+
+        in_channels = None
+        params = config.params.backbone.params
+        if hasattr(config.params.backbone.params, "in_channels"):
+            in_channels = config.params.backbone.params.in_channels
+            params = {k: v for k, v in params.items() if k != "in_channels"}
+
+        backbone = build_from_config(backbone_config, BACKBONES, params)
+
+        if in_channels is not None:
+            backbone = update_input_layer(backbone, in_channels)
+
+        in_features = analyze_in_features(backbone)
+        args = {"encoder": backbone, "in_features": in_features}
+        model = build_from_config(config, MODELS, default_args=args)
         return model

@@ -1,4 +1,6 @@
 # @package _group_
+skip_training: False
+
 train:
   batch_size: 32
   backbone_lr_ratio:
@@ -15,11 +17,11 @@ trainer:
   max_epochs: 20
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
-  amp_backend: 'native'
-  amp_level: 'O2'
+  # amp_backend: 'native'
+  # amp_level: 'O2'
   precision: 16
-  gpus: '[0, 1]'
-  accelerator: 'dp'
+  gpus: [0, 1]
+  accelerator: 'ddp'
   sync_batchnorm: True
   auto_lr_find: False
   auto_scale_batch_size: False
@@ -34,6 +36,7 @@ inference:
 logger:
   _target_: pytorch_lightning.loggers.WandbLogger
   project: ${project}
+  name: ${experiment_name}
   # mode: 'disabled'
 
 callbacks:
@@ -46,9 +49,9 @@ callbacks:
     filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
 
 model:
-  name: 'resnet18'
+  name: 'resnet34'
   params:
-    num_classes: 11
+    num_classes: 397
     pretrained: True
   last_linear:
     replace: True
@@ -67,10 +70,10 @@ metrics:
   multilabel_auroc:
     name: 'multilabel_auroc'
     params:
-      num_classes: 11
+      num_classes: num_classes
 
 optimizer:
-  name: 'AdamW'
+  name: 'RAdam'
   params:
     lr: 0.001
     weight_decay: 0.01

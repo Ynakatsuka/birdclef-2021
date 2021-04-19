@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 
 
-def evaluate(lightning_module, hooks, config, mode="validation"):
+def evaluate(lightning_module, hooks, config, mode=["validation", "test"]):
     print("---------------------------------------------------------------")
     print("Evaluate")
 
@@ -28,7 +28,7 @@ def evaluate(lightning_module, hooks, config, mode="validation"):
 
     with torch.no_grad():
         for dl_dict in lightning_module.dataloaders:
-            if dl_dict["mode"] != mode:
+            if not dl_dict["mode"] in (mode):
                 continue
 
             aggregated_outputs = []
@@ -46,11 +46,11 @@ def evaluate(lightning_module, hooks, config, mode="validation"):
                 outputs = lightning_module(x)
                 outputs = hooks.post_forward_fn(outputs)
 
-                aggregated_outputs.append(outputs.cpu().numpy())
-                aggregated_labels.append(y.cpu().numpy())
+                aggregated_outputs.append(outputs.detach().cpu().numpy())
+                aggregated_labels.append(y.detach().cpu().numpy())
 
-            aggregated_outputs = torch.tensor(concatenate(aggregated_outputs))
-            aggregated_labels = torch.tensor(concatenate(aggregated_labels))
+            aggregated_outputs = concatenate(aggregated_outputs)
+            aggregated_labels = concatenate(aggregated_labels)
 
             if config.trainer.evaluation.save_prediction:
                 if not os.path.exists(config.trainer.evaluation.dirpath):
@@ -59,7 +59,7 @@ def evaluate(lightning_module, hooks, config, mode="validation"):
                     config.trainer.evaluation.dirpath,
                     f"{split}_{config.trainer.evaluation.name}",
                 )
-                np.save(path, aggregated_outputs.numpy())
+                np.save(path, aggregated_outputs)
 
             if (dl_dict["mode"] == "validation") and (hooks.metric_fn is not None):
                 for name, func in hooks.metric_fn.items():

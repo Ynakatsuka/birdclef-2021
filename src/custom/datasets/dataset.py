@@ -8,61 +8,95 @@ import soundfile as sf
 import torch
 from scipy import interpolate
 
-# @kvt.DATASETS.register
-# class WaveformDataset(torch.utils.data.Dataset):
-#     def __init__(
-#         self,
-#         df: pd.DataFrame,
-#         datadir: Path,
-#         img_size=224,
-#         waveform_transforms=None,
-#         period=20,
-#         validation=False,
-#     ):
-#         self.df = df
-#         self.datadir = datadir
-#         self.img_size = img_size
-#         self.waveform_transforms = waveform_transforms
-#         self.period = period
-#         self.validation = validation
 
-#     def __len__(self):
-#         return len(self.df)
+@kvt.DATASETS.register
+class WaveformDataset(torch.utils.data.Dataset):
+    def __init__(
+        self,
+        csv_filename,
+        image_column,
+        target_column,
+        target_unique_values,
+        input_dir,
+        split="train",
+        transform=None,
+        sample_rate=32000,
+        period=20,
+        num_fold=5,
+        idx_fold=0,
+        **params,
+    ):
+        self.image_column = image_column
+        self.target_column = target_column
+        self.target_unique_values = target_unique_values
+        self.input_dir = input_dir
+        self.split = split
+        self.transform = transform
+        self.sample_rate = sample_rate
+        self.period = period
+        self.num_fold = num_fold
+        self.idx_fold = idx_fold
 
-#     def __getitem__(self, idx: int):
-#         sample = self.df.loc[idx, :]
-#         wav_name = sample["filename"]
-#         ebird_code = sample["primary_label"]
+        # load
+        df = pd.read_csv(os.path.join(input_dir, csv_filename))
 
-#         y, sr = sf.read(self.datadir / ebird_code / wav_name)
+        if self.split == "validation":
+            df = df[df.Fold == self.idx_fold]
+        elif self.split == "train":
+            df = df[df.Fold != self.idx_fold]
 
-#         len_y = len(y)
-#         effective_length = sr * self.period
-#         if len_y < effective_length:
-#             new_y = np.zeros(effective_length, dtype=y.dtype)
-#             if not self.validation:
-#                 start = np.random.randint(effective_length - len_y)
-#             else:
-#                 start = 0
-#             new_y[start : start + len_y] = y
-#             y = new_y.astype(np.float32)
-#         elif len_y > effective_length:
-#             if not self.validation:
-#                 start = np.random.randint(len_y - effective_length)
-#             else:
-#                 start = 0
-#             y = y[start : start + effective_length].astype(np.float32)
-#         else:
-#             y = y.astype(np.float32)
+        self.image_filenames = df[self.image_column].tolist()
+        self.targets = df[self.target_column].tolist()
 
-#         y = np.nan_to_num(y)
+        # image dir
+        if self.split == "test":
+            self.images_dir = "test_soundscapes"
+        else:
+            self.images_dir = "train_short_audio"
 
-#         if self.waveform_transforms:
-#             y = self.waveform_transforms(y)
+    def __len__(self):
+        return len(self.targets)
 
-#         y = np.nan_to_num(y)
+    def _preprocess_input(self, x, sr):
+        len_x = len(x)
+        effective_length = sr * self.period
+        if len_x < effective_length:
+            new_x = np.zeros(effective_length, dtype=x.dtype)
+            if self.split == "train":
+                start = np.random.randint(effective_length - len_x)
+            else:
+                start = 0
+            new_x[start : start + len_x] = x
+            x = new_x.astype(np.float32)
+        elif len_x > effective_length:
+            if self.split == "train":
+                start = np.random.randint(len_x - effective_length)
+            else:
+                start = 0
+            x = x[start : start + effective_length].astype(np.float32)
+        else:
+            x = x.astype(np.float32)
 
-#         labels = np.zeros(len(CFG.target_columns), dtype=float)
-#         labels[CFG.target_columns.index(ebird_code)] = 1.0
+        x = np.nan_to_num(x)
+        return x
 
-#         return {"x": y, "y": labels}
+    def _preprocess_target(self, y):
+        labels = np.zeros(len(self.target_unique_values), dtype="float32")
+        labels[self.target_unique_values.index(y)] = 1.0
+        return labels
+
+    def __getitem__(self, idx):
+        wav_name = self.image_filenames[idx]
+        ebird_code = self.targets[idx]
+
+        x, sr = sf.read(
+            os.path.join(self.input_dir, self.images_dir, ebird_code, wav_name)
+        )
+        x = self._preprocess_input(x, sr)
+        if self.transform is not None:
+            x = self.transform(x, self.sample_rate)
+        x = np.nan_to_num(x)
+
+        y = self._preprocess_target(ebird_code)
+
+        return {"x": x, "y": y}

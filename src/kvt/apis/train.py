@@ -1,6 +1,8 @@
 import copy
 import os
+import subprocess
 from collections import defaultdict
+from subprocess import PIPE
 
 import hydra
 import kvt.utils
@@ -23,6 +25,7 @@ from kvt.builder import (
     build_strong_transform,
 )
 from kvt.evaluate import evaluate
+from pytorch_lightning.plugins import DDPPlugin
 from tqdm import tqdm
 
 
@@ -82,7 +85,9 @@ def run(config):
 
     # logging for wandb or mlflow
     if hasattr(logger, "log_hyperparams"):
-        logger.log_hyperparams(params=config.trainer)
+        for k, v in config.trainer.items():
+            if not k in ("metrics", "inference"):
+                logger.log_hyperparams(params=v)
         logger.log_hyperparams(params=config.dataset)
         logger.log_hyperparams(params=config.augmentation)
 
@@ -120,18 +125,44 @@ def run(config):
         strong_transform=strong_transform,
     )
 
+    # build plugins
+    # fix this issue
+    # https://github.com/PyTorchLightning/pytorch-lightning/discussions/6219
+    plugins = []
+    if hasattr(config.trainer.trainer, "accelerator") and (
+        config.trainer.trainer.accelerator in ("ddp", "ddp2")
+    ):
+        plugins.append(
+            DDPPlugin(find_unused_parameters=False),
+        )
+
+    # best model path
+    dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
+    filename = f"{config.experiment_name}_fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
+    best_model_path = os.path.join(dir_path, filename)
+
     # train loop
-    trainer = pl.Trainer(logger=logger, callbacks=callbacks, **config.trainer.trainer)
-    trainer.fit(lightning_module)
+    trainer = pl.Trainer(
+        logger=logger,
+        callbacks=callbacks,
+        plugins=plugins,
+        **config.trainer.trainer,
+    )
+    if not config.trainer.skip_training:
+        trainer.fit(lightning_module)
+        path = trainer.checkpoint_callback.best_model_path
+        # copy best model
+        subprocess.run(
+            f"cp {path} {best_model_path}", shell=True, stdout=PIPE, stderr=PIPE
+        )
 
     # log best model
     if hasattr(logger, "log_hyperparams"):
-        logger.log_hyperparams(
-            params={"best_model_path": trainer.checkpoint_callback.best_model_path}
-        )
+        logger.log_hyperparams(params={"best_model_path": best_model_path})
 
     # load best checkpoint
-    state_dict = torch.load(trainer.checkpoint_callback.best_model_path)["state_dict"]
+    print(f"Loading best model: {best_model_path}")
+    state_dict = torch.load(best_model_path)["state_dict"]
 
     # if using dp, it is necessary to fix state dict keys
     if (
@@ -143,7 +174,7 @@ def run(config):
     lightning_module.model.load_state_dict(state_dict)
 
     # evaluate
-    metric_dict = evaluate(lightning_module, hooks, config)
+    metric_dict = evaluate(lightning_module, hooks, config, mode=["validation"])
 
     if hasattr(logger, "log_metrics"):
         logger.log_metrics(metric_dict)

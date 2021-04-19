@@ -3,7 +3,8 @@
 project: birdclef-2021
 version: 1
 run: train
-seed: 42
+seed: 1213
+numexpr_max_threads: '48'
 
 # disable python warnings if they annoy you
 disable_warnings: True
@@ -14,6 +15,7 @@ print_config: False
 # working path
 work_dir: ${hydra:runtime.cwd}
 data_dir: ${work_dir}/data/
+input_dir: ${work_dir}/data/input
 save_dir: ${work_dir}/data/output
 
 experiment_name: ${hydra:job.override_dirname}

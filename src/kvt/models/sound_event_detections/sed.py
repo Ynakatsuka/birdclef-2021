@@ -134,7 +134,7 @@ class AttBlockV2(nn.Module):
 class SED(nn.Module):
     def __init__(
         self,
-        backbone,
+        encoder,
         in_features,
         num_classes,
         n_fft,
@@ -143,6 +143,7 @@ class SED(nn.Module):
         n_mels,
         fmin,
         fmax,
+        **params,
     ):
         super().__init__()
         # Spectrogram extractor
@@ -179,7 +180,7 @@ class SED(nn.Module):
 
         self.bn0 = nn.BatchNorm2d(n_mels)
 
-        layers = list(backbone.children())[:-2]
+        layers = list(encoder.children())[:-2]
         self.encoder = nn.Sequential(*layers)
 
         self.fc1 = nn.Linear(in_features, in_features, bias=True)
@@ -198,14 +199,14 @@ class SED(nn.Module):
 
         frames_num = x.shape[2]
 
-        x = x.transpose(1, 3)
+        x = x.transpose(1, 3).contiguous()
         x = self.bn0(x)
-        x = x.transpose(1, 3)
+        x = x.transpose(1, 3).contiguous()
 
         if self.training:
             x = self.spec_augmenter(x)
 
-        x = x.transpose(2, 3)
+        x = x.transpose(2, 3).contiguous()
         # (batch_size, channels, freq, frames)
         x = self.encoder(x)
 
@@ -218,14 +219,15 @@ class SED(nn.Module):
         x = x1 + x2
 
         x = F.dropout(x, p=0.5, training=self.training)
-        x = x.transpose(1, 2)
+        x = x.transpose(1, 2).contiguous()
         x = F.relu_(self.fc1(x))
-        x = x.transpose(1, 2)
+        x = x.transpose(1, 2).contiguous()
         x = F.dropout(x, p=0.5, training=self.training)
+
         (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
         logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
-        segmentwise_logit = self.att_block.cla(x).transpose(1, 2)
-        segmentwise_output = segmentwise_output.transpose(1, 2)
+        segmentwise_logit = self.att_block.cla(x).transpose(1, 2).contiguous()
+        segmentwise_output = segmentwise_output.transpose(1, 2).contiguous()
 
         interpolate_ratio = frames_num // segmentwise_output.size(1)
 

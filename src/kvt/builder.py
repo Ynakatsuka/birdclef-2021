@@ -27,13 +27,15 @@ def build_dataloaders(config):
     dataloaders = []
     for split_config in config.dataset.dataset.splits:
         if isinstance(config, DictConfig):
-            split_config = OmegaConf.to_container(split_config)
+            split_config = OmegaConf.to_container(split_config, resolve=True)
 
         if isinstance(config, DictConfig):
             dataset_config = edict(
                 {
                     "name": config.dataset.dataset.name,
-                    "params": OmegaConf.to_container(config.dataset.dataset.params),
+                    "params": OmegaConf.to_container(
+                        config.dataset.dataset.params, resolve=True
+                    ),
                 }
             )
         else:
@@ -45,8 +47,10 @@ def build_dataloaders(config):
             )
 
         dataset_config.params.update(split_config)
-        print("---------------------------------------------------------------")
-        print(f"dataset config: \n {dataset_config}")
+
+        if config.print_config:
+            print("---------------------------------------------------------------")
+            print(f"dataset config: \n {dataset_config}")
 
         split = dataset_config.params.split
         is_train = dataset_config.params.mode == "train"
@@ -55,16 +59,23 @@ def build_dataloaders(config):
         else:
             batch_size = config.trainer.evaluation.batch_size
 
+        # build transform
+        transform_configs = {
+            "split": split,
+            "aug_cfg": config.augmentation.get(split),
+        }
+        for p in ["height", "width"]:
+            if hasattr(config.augmentation, p):
+                transform_configs[p] = getattr(config.augmentation, p)
+            else:
+                print(f"{p} is not in augmentation config")
         transform = build_from_config(
             config.dataset.transform,
             TRANSFORMS,
-            default_args={
-                "split": split,
-                "height": config.augmentation.height,
-                "width": config.augmentation.width,
-                "aug_cfg": config.augmentation.get(split),
-            },
+            default_args=transform_configs,
         )
+
+        # build dataset
         dataset = build_from_config(
             dataset_config,
             DATASETS,

@@ -27,6 +27,7 @@ ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:/opt/bin:${PATH}
 
 # Using cuda11.0 instead of 11.1
 RUN conda remove --force -y pytorch torchvision torchaudio cpuonly && \
+    # conda install pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=11.0 -c pytorch && \
     conda install pytorch==1.8.1 torchvision torchaudio cudatoolkit=11.1 -c pytorch -c conda-forge && \
     /tmp/clean-layer.sh
 
@@ -35,7 +36,8 @@ RUN pip install -r /tmp/requirements.txt
 RUN pip install git+https://github.com/rwightman/pytorch-image-models/ -b v0.1-dnf-weights
 
 # nodejs, jupyterlab extention
-# apt install -y nodejs npm
-
-# RUN conda install -c conda-forge nodejs==15.14.0 && \
-#     jupyter labextension install @jupyterlab/plotly-extension
+RUN npm install n -g && \
+    n 15.14.0 && \
+    ln -sf /usr/local/bin/node /opt/conda/bin/node && \
+    jupyter labextension install jupyterlab-plotly@4.14.3 && \
+    jupyter lab build

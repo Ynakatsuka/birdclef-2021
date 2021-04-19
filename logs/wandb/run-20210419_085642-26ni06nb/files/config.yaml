@@ -1,0 +1,583 @@
+wandb_version: 1
+
+ModelCheckpoint/_target_:
+  desc: null
+  value: pytorch_lightning.callbacks.ModelCheckpoint
+ModelCheckpoint/dirpath:
+  desc: null
+  value: /home/working/data/output/models/
+ModelCheckpoint/filename:
+  desc: null
+  value: augmentation=exp001,trainer=exp001_fold_0_{epoch:03d}
+ModelCheckpoint/monitor:
+  desc: null
+  value: val_loss
+ModelCheckpoint/save_last:
+  desc: null
+  value: false
+ModelCheckpoint/save_top_k:
+  desc: null
+  value: 5
+_target_:
+  desc: null
+  value: pytorch_lightning.loggers.WandbLogger
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.10
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.7.6
+accelerator:
+  desc: null
+  value: ddp
+accumulate_grad_batches:
+  desc: null
+  value: 1
+auto_lr_find:
+  desc: null
+  value: false
+auto_scale_batch_size:
+  desc: null
+  value: false
+backbone_lr_ratio:
+  desc: null
+  value: None
+batch_size:
+  desc: null
+  value: 64
+benchmark:
+  desc: null
+  value: true
+best_model_path:
+  desc: null
+  value: /home/working/data/output/models/augmentation=exp001,trainer=exp001_fold_0_epoch=001-v3.ckpt
+check_val_every_n_epoch:
+  desc: null
+  value: 1
+dataset/name:
+  desc: null
+  value: WaveformDataset
+dataset/params/csv_filename:
+  desc: null
+  value: train_fold_v000.csv
+dataset/params/idx_fold:
+  desc: null
+  value: 0
+dataset/params/image_column:
+  desc: null
+  value: filename
+dataset/params/input_dir:
+  desc: null
+  value: /home/working/data/input
+dataset/params/num_fold:
+  desc: null
+  value: 5
+dataset/params/period:
+  desc: null
+  value: 20
+dataset/params/sample_rate:
+  desc: null
+  value: 32000
+dataset/params/target_column:
+  desc: null
+  value: primary_label
+dataset/params/target_unique_values:
+  desc: null
+  value:
+  - acafly
+  - acowoo
+  - aldfly
+  - ameavo
+  - amecro
+  - amegfi
+  - amekes
+  - amepip
+  - amered
+  - amerob
+  - amewig
+  - amtspa
+  - andsol1
+  - annhum
+  - astfly
+  - azaspi1
+  - babwar
+  - baleag
+  - balori
+  - banana
+  - banswa
+  - banwre1
+  - barant1
+  - barswa
+  - batpig1
+  - bawswa1
+  - bawwar
+  - baywre1
+  - bbwduc
+  - bcnher
+  - belkin1
+  - belvir
+  - bewwre
+  - bkbmag1
+  - bkbplo
+  - bkbwar
+  - bkcchi
+  - bkhgro
+  - bkmtou1
+  - bknsti
+  - blbgra1
+  - blbthr1
+  - blcjay1
+  - blctan1
+  - blhpar1
+  - blkpho
+  - blsspa1
+  - blugrb1
+  - blujay
+  - bncfly
+  - bnhcow
+  - bobfly1
+  - bongul
+  - botgra
+  - brbmot1
+  - brbsol1
+  - brcvir1
+  - brebla
+  - brncre
+  - brnjay
+  - brnthr
+  - brratt1
+  - brwhaw
+  - brwpar1
+  - btbwar
+  - btnwar
+  - btywar
+  - bucmot2
+  - buggna
+  - bugtan
+  - buhvir
+  - bulori
+  - burwar1
+  - bushti
+  - butsal1
+  - buwtea
+  - cacgoo1
+  - cacwre
+  - calqua
+  - caltow
+  - cangoo
+  - canwar
+  - carchi
+  - carwre
+  - casfin
+  - caskin
+  - caster1
+  - casvir
+  - categr
+  - ccbfin
+  - cedwax
+  - chbant1
+  - chbchi
+  - chbwre1
+  - chcant2
+  - chispa
+  - chswar
+  - cinfly2
+  - clanut
+  - clcrob
+  - cliswa
+  - cobtan1
+  - cocwoo1
+  - cogdov
+  - colcha1
+  - coltro1
+  - comgol
+  - comgra
+  - comloo
+  - commer
+  - compau
+  - compot1
+  - comrav
+  - comyel
+  - coohaw
+  - cotfly1
+  - cowscj1
+  - cregua1
+  - creoro1
+  - crfpar
+  - cubthr
+  - daejun
+  - dowwoo
+  - ducfly
+  - dusfly
+  - easblu
+  - easkin
+  - easmea
+  - easpho
+  - eastow
+  - eawpew
+  - eletro
+  - eucdov
+  - eursta
+  - fepowl
+  - fiespa
+  - flrtan1
+  - foxspa
+  - gadwal
+  - gamqua
+  - gartro1
+  - gbbgul
+  - gbwwre1
+  - gcrwar
+  - gilwoo
+  - gnttow
+  - gnwtea
+  - gocfly1
+  - gockin
+  - gocspa
+  - goftyr1
+  - gohque1
+  - goowoo1
+  - grasal1
+  - grbani
+  - grbher3
+  - grcfly
+  - greegr
+  - grekis
+  - grepew
+  - grethr1
+  - gretin1
+  - greyel
+  - grhcha1
+  - grhowl
+  - grnher
+  - grnjay
+  - grtgra
+  - grycat
+  - gryhaw2
+  - gwfgoo
+  - haiwoo
+  - heptan
+  - hergul
+  - herthr
+  - herwar
+  - higmot1
+  - hofwoo1
+  - houfin
+  - houspa
+  - houwre
+  - hutvir
+  - incdov
+  - indbun
+  - kebtou1
+  - killde
+  - labwoo
+  - larspa
+  - laufal1
+  - laugul
+  - lazbun
+  - leafly
+  - leasan
+  - lesgol
+  - lesgre1
+  - lesvio1
+  - linspa
+  - linwoo1
+  - littin1
+  - lobdow
+  - lobgna5
+  - logshr
+  - lotduc
+  - lotman1
+  - lucwar
+  - macwar
+  - magwar
+  - mallar3
+  - marwre
+  - mastro1
+  - meapar
+  - melbla1
+  - monoro1
+  - mouchi
+  - moudov
+  - mouela1
+  - mouqua
+  - mouwar
+  - mutswa
+  - naswar
+  - norcar
+  - norfli
+  - normoc
+  - norpar
+  - norsho
+  - norwat
+  - nrwswa
+  - nutwoo
+  - oaktit
+  - obnthr1
+  - ocbfly1
+  - oliwoo1
+  - olsfly
+  - orbeup1
+  - orbspa1
+  - orcpar
+  - orcwar
+  - orfpar
+  - osprey
+  - ovenbi1
+  - pabspi1
+  - paltan1
+  - palwar
+  - pasfly
+  - pavpig2
+  - phivir
+  - pibgre
+  - pilwoo
+  - pinsis
+  - pirfly1
+  - plawre1
+  - plaxen1
+  - plsvir
+  - plupig2
+  - prowar
+  - purfin
+  - purgal2
+  - putfru1
+  - pygnut
+  - rawwre1
+  - rcatan1
+  - rebnut
+  - rebsap
+  - rebwoo
+  - redcro
+  - reevir1
+  - rehbar1
+  - relpar
+  - reshaw
+  - rethaw
+  - rewbla
+  - ribgul
+  - rinkin1
+  - roahaw
+  - robgro
+  - rocpig
+  - rotbec
+  - royter1
+  - rthhum
+  - rtlhum
+  - ruboro1
+  - rubpep1
+  - rubrob
+  - rubwre1
+  - ruckin
+  - rucspa1
+  - rucwar
+  - rucwar1
+  - rudpig
+  - rudtur
+  - rufhum
+  - rugdov
+  - rumfly1
+  - runwre1
+  - rutjac1
+  - saffin
+  - sancra
+  - sander
+  - savspa
+  - saypho
+  - scamac1
+  - scatan
+  - scbwre1
+  - scptyr1
+  - scrtan1
+  - semplo
+  - shicow
+  - sibtan2
+  - sinwre1
+  - sltred
+  - smbani
+  - snogoo
+  - sobtyr1
+  - socfly1
+  - solsan
+  - sonspa
+  - soulap1
+  - sposan
+  - spotow
+  - spvear1
+  - squcuc1
+  - stbori
+  - stejay
+  - sthant1
+  - sthwoo1
+  - strcuc1
+  - strfly1
+  - strsal1
+  - stvhum2
+  - subfly
+  - sumtan
+  - swaspa
+  - swathr
+  - tenwar
+  - thbeup1
+  - thbkin
+  - thswar1
+  - towsol
+  - treswa
+  - trogna1
+  - trokin
+  - tromoc
+  - tropar
+  - tropew1
+  - tuftit
+  - tunswa
+  - veery
+  - verdin
+  - vigswa
+  - warvir
+  - wbwwre1
+  - webwoo1
+  - wegspa1
+  - wesant1
+  - wesblu
+  - weskin
+  - wesmea
+  - westan
+  - wewpew
+  - whbman1
+  - whbnut
+  - whcpar
+  - whcsee1
+  - whcspa
+  - whevir
+  - whfpar1
+  - whimbr
+  - whiwre1
+  - whtdov
+  - whtspa
+  - whwbec1
+  - whwdov
+  - wilfly
+  - willet1
+  - wilsni1
+  - wiltur
+  - wlswar
+  - wooduc
+  - woothr
+  - wrenti
+  - y00475
+  - yebcha
+  - yebela1
+  - yebfly
+  - yebori1
+  - yebsap
+  - yebsee1
+  - yefgra1
+  - yegvir
+  - yehbla
+  - yehcar1
+  - yelgro
+  - yelwar
+  - yeofly1
+  - yerwar
+  - yeteup1
+  - yetvir
+dataset/splits:
+  desc: null
+  value:
+  - '{''mode'': ''train'', ''split'': ''train''}'
+  - '{''mode'': ''validation'', ''split'': ''validation''}'
+  - '{''mode'': ''test'', ''split'': ''test''}'
+deterministic:
+  desc: null
+  value: true
+dirpath:
+  desc: null
+  value: /home/working/data/output/predictions/oof/
+encoder_lr_ratio:
+  desc: null
+  value: None
+gpus:
+  desc: null
+  value:
+  - 0
+  - 1
+max_epochs:
+  desc: null
+  value: 40
+name:
+  desc: null
+  value: LightningModuleBase
+num_sanity_val_steps:
+  desc: null
+  value: 0
+params/backbone/name:
+  desc: null
+  value: tf_efficientnet_b0_ns
+params/backbone/params/in_channels:
+  desc: null
+  value: 1
+params/backbone/params/pretrained:
+  desc: null
+  value: true
+params/fmax:
+  desc: null
+  value: 16000
+params/fmin:
+  desc: null
+  value: 20
+params/hop_length:
+  desc: null
+  value: 512
+params/lr:
+  desc: null
+  value: 0.001
+params/n_fft:
+  desc: null
+  value: 2048
+params/n_mels:
+  desc: null
+  value: 128
+params/num_classes:
+  desc: null
+  value: 397
+params/sample_rate:
+  desc: null
+  value: 32000
+params/weight_decay:
+  desc: null
+  value: 0.01
+post_forward/name:
+  desc: null
+  value: KeySelectPostForwardHook
+project:
+  desc: null
+  value: birdclef-2021
+resume_from_checkpoint:
+  desc: null
+  value: None
+save_prediction:
+  desc: null
+  value: true
+sync_batchnorm:
+  desc: null
+  value: true
+test:
+  desc: null
+  value:
+  - '{''name'': ''Normalize'', ''params'': None}'
+train:
+  desc: null
+  value:
+  - '{''name'': ''Normalize'', ''params'': None}'
+transform/name:
+  desc: null
+  value: base_audio_transform
+transform/num_preprocessor:
+  desc: null
+  value: 24
+validation:
+  desc: null
+  value:
+  - '{''name'': ''Normalize'', ''params'': None}'

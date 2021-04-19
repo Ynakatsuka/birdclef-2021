@@ -1,3 +1,4 @@
+import numpy as np
 import pytorch_lightning as pl
 import torch
 
@@ -12,7 +13,6 @@ class LightningModuleBase(pl.LightningModule):
         dataloaders,
         transform=None,
         strong_transform=None,
-        validation_keys=["val_loss"],
     ):
         super().__init__()
         self.model = model
@@ -22,7 +22,6 @@ class LightningModuleBase(pl.LightningModule):
         self.dataloaders = dataloaders
         self.transform = transform
         self.strong_transform = strong_transform
-        self.validation_keys = set(validation_keys)
 
         if (
             hasattr(self.hooks, "")
@@ -71,26 +70,34 @@ class LightningModuleBase(pl.LightningModule):
 
         if self.hooks.metric_fn is not None:
             y_hat = self.hooks.post_forward_fn(y_hat)
-
-            for name, func in self.hooks.metric_fn.items():
-                result = func(y_hat, y)
-                if isinstance(result, tuple):
-                    # discard detail score metrics
-                    result, _ = result[0], result[1]
-                outputs[f"val_{name}"] = result
-                self.validation_keys.add(f"val_{name}")
+            outputs["y_hat"] = y_hat.detach().cpu().numpy()
+            outputs["y"] = y.detach().cpu().numpy()
 
         return outputs
 
     def validation_epoch_end(self, outputs):
         avg_outputs = {}
-        for key in self.validation_keys:
-            avg_outputs[key] = torch.stack([o[key] for o in outputs]).mean()
+        avg_outputs["val_loss"] = torch.stack([o["val_loss"] for o in outputs]).mean()
 
-        if hasattr(self.logger, "log_metrics") and (
-            not self.trainer.running_sanity_check
-        ):
-            self.logger.log_metrics(avg_outputs)
+        if self.hooks.metric_fn is not None:
+            y_hat = np.concatenate([o["y_hat"] for o in outputs], axis=0)
+            y = np.concatenate([o["y"] for o in outputs], axis=0)
+            for name, func in self.hooks.metric_fn.items():
+                result = func(y_hat, y)
+                if isinstance(result, tuple):
+                    # discard detail score metrics
+                    result, _ = result[0], result[1]
+                avg_outputs[f"val_{name}"] = result
+
+        if not self.trainer.running_sanity_check:
+            for key, value in avg_outputs.items():
+                self.log(
+                    key,
+                    value,
+                    on_epoch=True,
+                    prog_bar=True,
+                    logger=True,
+                )
 
         return avg_outputs
 
@@ -101,10 +108,16 @@ class LightningModuleBase(pl.LightningModule):
             return [self.optimizer]
 
     def train_dataloader(self):
-        return [d["dataloader"] for d in self.dataloaders if d["mode"] == "train"]
+        dls = [d["dataloader"] for d in self.dataloaders if d["mode"] == "train"]
+        assert len(dls) == 1
+        return dls[0]
 
     def val_dataloader(self):
-        return [d["dataloader"] for d in self.dataloaders if d["mode"] == "validation"]
+        dls = [d["dataloader"] for d in self.dataloaders if d["mode"] == "validation"]
+        assert len(dls) == 1
+        return dls[0]
 
     def test_dataloader(self):
-        return [d["dataloader"] for d in self.dataloaders if d["mode"] == "test"]
+        dls = [d["dataloader"] for d in self.dataloaders if d["mode"] == "test"]
+        assert len(dls) == 1
+        return dls[0]

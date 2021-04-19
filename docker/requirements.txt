@@ -1,7 +1,7 @@
 easydict>=1.9
 efficientnet-pytorch>=0.7.0
 pretrainedmodels>=0.7.4
-jupyterlab>=2.2.9
+jupyterlab==2.2.9
 iterative-stratification>=0.1.6
 hydra-core>=1.0.6
 timm>=0.4.5
@@ -14,3 +14,4 @@ resnest>=0.0.5
 jpeg4py>=0.1.4
 torchlibrosa>=0.0.9
 torchxrayvision>=0.0.25
+audiomentations>=0.16.0
