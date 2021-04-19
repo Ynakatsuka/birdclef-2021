@@ -1,1 +1,0 @@
-{"loss": 0.05586383864283562, "_step": 3895, "_runtime": 1032, "_timestamp": 1618816997, "val_rowwise_micro_f1_30": 0.0, "val_loss": 0.057731106877326965, "val_rowwise_micro_f1_50": 0.0, "val_rowwise_micro_f1_70": 0.0, "epoch": 3, "trainer/global_step": 3143}

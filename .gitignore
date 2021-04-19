@@ -3,6 +3,8 @@
 # Kaggle
 input/*
 data/*
+logs/
+notebook/
 submission/*
 
 # General
@@ -11,7 +13,8 @@ submission/*
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*

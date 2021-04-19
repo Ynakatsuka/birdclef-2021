@@ -1,1 +1,0 @@
-{"loss": 0.11592066287994385, "_step": 1776, "_runtime": 492, "_timestamp": 1618815223, "val_rowwise_micro_f1_50": 0.0, "val_loss": 0.059649381786584854, "val_rowwise_micro_f1_70": 0.0, "val_rowwise_micro_f1_30": 0.0}
