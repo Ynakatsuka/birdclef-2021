@@ -83,6 +83,12 @@ def run(config):
     # build logger
     logger = build_logger(config)
 
+    # debug
+    if config.debug:
+        logger = None
+        config.trainer.trainer.max_epochs = None
+        config.trainer.trainer.max_steps = 100
+
     # logging for wandb or mlflow
     if hasattr(logger, "log_hyperparams"):
         for k, v in config.trainer.items():

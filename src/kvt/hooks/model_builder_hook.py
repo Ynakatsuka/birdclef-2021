@@ -21,6 +21,14 @@ from kvt.utils import build_from_config
 from omegaconf import OmegaConf
 
 
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+
+    def forward(self, x):
+        return x
+
+
 def analyze_in_features(model):
     if hasattr(model, "classifier"):
         in_features = model.classifier.in_features
@@ -39,9 +47,10 @@ def analyze_in_features(model):
 def replace_last_linear(
     model,
     num_classes,
-    pool_type,
-    dropout_rate,
-    use_seblock,
+    pool_type="gem",
+    dropout_rate=0,
+    use_seblock=False,
+    use_identity_as_last_layer=False,
 ):
     # default args
     if dropout_rate is None:
@@ -62,6 +71,8 @@ def replace_last_linear(
             fc_input_shape_ratio = 100
         elif pool_type == "gem":
             setattr(original, layer_name, GeM())
+        elif pool_type == "identity":
+            setattr(original, layer_name, Identity())
 
         return fc_input_shape_ratio
 
@@ -90,6 +101,9 @@ def replace_last_linear(
     )
     last_layers = nn.Sequential(*last_layers)
 
+    if use_identity_as_last_layer:
+        last_layers = Identity()
+
     if hasattr(model, "classifier"):
         model.classifier = last_layers
     elif hasattr(model, "fc"):
@@ -105,12 +119,19 @@ def replace_last_linear(
 
 def update_input_layer(model, in_channels):
     for l in model.children():
-        assert l.bias is None
-        data = torch.mean(l.weight, axis=1).unsqueeze(1)
-        data = torch.tile(data, (1, in_channels, 1, 1))
-        l.weight.data = data
+        if isinstance(l, nn.Sequential):
+            for ll in l.children():
+                assert ll.bias is None
+                data = torch.mean(ll.weight, axis=1).unsqueeze(1)
+                data = torch.tile(data, (1, in_channels, 1, 1))
+                ll.weight.data = data
+                break
+        else:
+            assert l.bias is None
+            data = torch.mean(l.weight, axis=1).unsqueeze(1)
+            data = torch.tile(data, (1, in_channels, 1, 1))
+            l.weight.data = data
         break
-
     return model
 
 
@@ -208,6 +229,13 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
             backbone = update_input_layer(backbone, in_channels)
 
         in_features = analyze_in_features(backbone)
+        backbone = replace_last_linear(
+            backbone,
+            num_classes=1,
+            pool_type="identity",
+            use_identity_as_last_layer=True,
+        )
+
         args = {"encoder": backbone, "in_features": in_features}
         model = build_from_config(config, MODELS, default_args=args)
         return model
