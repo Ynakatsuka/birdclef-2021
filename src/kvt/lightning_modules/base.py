@@ -13,6 +13,8 @@ class LightningModuleBase(pl.LightningModule):
         dataloaders,
         transform=None,
         strong_transform=None,
+        disable_strong_transform_in_last_epochs=5,
+        max_epochs=None,
     ):
         super().__init__()
         self.model = model
@@ -22,6 +24,10 @@ class LightningModuleBase(pl.LightningModule):
         self.dataloaders = dataloaders
         self.transform = transform
         self.strong_transform = strong_transform
+        self.disable_strong_transform_in_last_epochs = (
+            disable_strong_transform_in_last_epochs
+        )
+        self.max_epochs = max_epochs
 
         if (
             hasattr(self.hooks, "")
@@ -37,9 +43,16 @@ class LightningModuleBase(pl.LightningModule):
         x, y = batch["x"], batch["y"]
 
         if self.transform is not None:
-            x = self.aumgmentation(x)
+            x = self.transform(x)
 
-        if self.strong_transform is not None:
+        if (
+            (self.strong_transform is not None)
+            and (self.max_epochs is not None)
+            and (
+                self.current_epoch
+                <= self.max_epochs - self.disable_strong_transform_in_last_epochs
+            )
+        ):
             x, y_a, y_b, lam = self.strong_transform(x, y)
             y_hat = self.forward(x)
             loss = lam * self.hooks.loss_fn(y_hat, y_a) + (

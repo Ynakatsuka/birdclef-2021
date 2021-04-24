@@ -10,9 +10,16 @@ class LightningModuleSAM(LightningModuleBase):
     def training_step(self, batch, batch_idx):
         x, y = batch["x"], batch["y"]
         if self.transform is not None:
-            x = self.aumgmentation(x)
+            x = self.transform(x)
 
-        if self.strong_transform is not None:
+        if (
+            (self.strong_transform is not None)
+            and (self.max_epochs is not None)
+            and (
+                self.current_epoch
+                <= self.max_epochs - self.disable_strong_transform_in_last_epochs
+            )
+        ):
             x, y_a, y_b, lam = self.strong_transform(x, y)
             y_hat = self.forward(x)
             loss = lam * self.hooks.loss_fn(y_hat, y_a) + (
