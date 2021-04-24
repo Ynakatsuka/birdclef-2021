@@ -2,24 +2,24 @@
 skip_training: False
 
 train:
-  batch_size: 32
+  batch_size: 64
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 64
+  batch_size: 128
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
 
 trainer:
   resume_from_checkpoint: # '${trainer.dir}/trainer_exp000_aug_exp000_fold_0_epoch=009.ckpt'
-  max_epochs: 20
+  max_epochs: 35
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
   # amp_backend: 'native'
   # amp_level: 'O2'
-  precision: 16
+  # precision: 16
   gpus: [0, 1]
   accelerator: 'ddp'
   sync_batchnorm: True
@@ -49,28 +49,44 @@ callbacks:
     filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
 
 model:
-  name: 'resnet34'
+  name: 'SED'
   params:
     num_classes: 397
-    pretrained: True
-  last_linear:
-    replace: True
-    dropout: 0.5
-    pool_type: 
-    use_seblock: False 
-    training: False # freezing pretrained weights and training last linear only
-    params: 
-      max_epochs: 4
-      check_val_every_n_epoch: 3
+    backbone: 
+      name: 'tf_efficientnet_b0_ns'
+      params:
+        in_channels: 1
+        pretrained: True
+    n_fft: 2048
+    hop_length: 512
+    sample_rate: ${dataset.dataset.params.sample_rate}
+    n_mels: 128
+    fmin: 20
+    fmax: 16000
+    dropout_rate: 0.25
+    time_drop_width: 64
+    time_stripes_num: 2
+    freq_drop_width: 8
+    freq_stripes_num: 2
 
 loss:
-  name: 'BCEWithLogitsLoss'
+  name: 'BCEFocal2WayLossHook'
 
 metrics: 
-  multilabel_auroc:
-    name: 'multilabel_auroc'
+  f1_30:
+    name: 'rowwise_micro_f1'
     params:
-      num_classes: num_classes
+      threshold: 0.3
+  f1_50:
+    name: 'rowwise_micro_f1'
+    params:
+      threshold: 0.5
+  f1_70:
+    name: 'rowwise_micro_f1'
+    params:
+      threshold: 0.7
+  mAP:
+    name: 'mAP'
 
 optimizer:
   name: 'RAdam'
@@ -79,12 +95,9 @@ optimizer:
     weight_decay: 0.01
 
 scheduler:
-  name: 'OneCycleLR'
+  name: 'CosineAnnealingLR'
   params:
-    epochs: 2
-    max_lr: 0.00025
-    pct_start: 0.033
-    steps_per_epoch: 568
+    T_max: 10
 
 lightning_module: 
   name: 'LightningModuleBase'
@@ -93,4 +106,5 @@ lightning_module:
       disable_strong_transform_in_last_epochs: 5    
 
 hooks:
-  post_forward:
+  post_forward: 
+    name: KeySelectPostForwardHook

@@ -1,0 +1,32 @@
+# @package _group_
+
+# image size
+# height: 512
+# width: 512
+
+# tta: 1 - 4
+# tta: 1
+
+train:
+  - name: TimeStretch
+    params:
+      p: 0.3
+  - name: Normalize
+    params:
+        # p: 1.0
+        # mean: [0.86821552, 0.73319595, 0.81884091]
+        # std: [0.37468367, 0.5095725, 0.4131941]
+
+validation:
+  - name: Normalize
+    params:
+        # p: 1.0
+        # mean: [0.86821552, 0.73319595, 0.81884091]
+        # std: [0.37468367, 0.5095725, 0.4131941]
+
+test:
+  - name: Normalize
+    params:
+        # p: 1.0
+        # mean: [0.86821552, 0.73319595, 0.81884091]
+        # std: [0.37468367, 0.5095725, 0.4131941]

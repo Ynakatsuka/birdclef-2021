@@ -1,0 +1,25 @@
+# @package _group_
+
+# image size
+# height: 512
+# width: 512
+
+# tta: 1 - 4
+# tta: 1
+
+train:
+  - name: PitchShift
+    params:
+      min_semitones: -4
+      max_semitones: 4
+      p: 0.5
+  - name: Normalize
+    params:
+
+validation:
+  - name: Normalize
+    params:
+
+test:
+  - name: Normalize
+    params:

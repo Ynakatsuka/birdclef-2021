@@ -9,6 +9,9 @@ numexpr_max_threads: '48'
 # disable python warnings if they annoy you
 disable_warnings: True
 
+# debug
+debug: False
+
 # pretty print config at the start of the run using Rich library
 print_config: False
 

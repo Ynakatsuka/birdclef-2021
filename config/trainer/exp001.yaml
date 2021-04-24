@@ -68,15 +68,15 @@ loss:
   name: 'BCEFocal2WayLossHook'
 
 metrics: 
-  rowwise_micro_f1_30:
+  f1_30:
     name: 'rowwise_micro_f1'
     params:
       threshold: 0.3
-  rowwise_micro_f1_50:
+  f1_50:
     name: 'rowwise_micro_f1'
     params:
       threshold: 0.5
-  rowwise_micro_f1_70:
+  f1_70:
     name: 'rowwise_micro_f1'
     params:
       threshold: 0.7
@@ -90,15 +90,15 @@ optimizer:
     weight_decay: 0.01
 
 scheduler:
-#   name: 'OneCycleLR'
+#   name: 'CosineAnnealingLR'
 #   params:
-#     epochs: 2
-#     max_lr: 0.00025
-#     pct_start: 0.033
-#     steps_per_epoch: 568
+#     T_max: 10
 
 lightning_module: 
   name: 'LightningModuleBase'
+  params:
+      max_epochs: ${trainer.trainer.max_epochs}
+      disable_strong_transform_in_last_epochs: 5    
 
 hooks:
   post_forward: 
