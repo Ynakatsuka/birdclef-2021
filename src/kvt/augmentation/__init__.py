@@ -8,4 +8,5 @@ from .mix import cutmix, mixup
 from .morphological import RandomMorph
 from .needless import NeedleAugmentation
 from .random_erasing import RandomErasing
+from .spec_augmentation import SpecAugmentationPlusPlus
 from .sprinkle import Sprinkle
