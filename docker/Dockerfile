@@ -41,3 +41,6 @@ RUN npm install n -g && \
     ln -sf /usr/local/bin/node /opt/conda/bin/node && \
     jupyter labextension install jupyterlab-plotly@4.14.3 && \
     jupyter lab build
+
+# wandb credentials
+COPY .netrc /root/.netrc
