@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from kvt.augmentation import SpecAugmentationPlusPlus
 from torchlibrosa.augmentation import SpecAugmentation
 from torchlibrosa.stft import LogmelFilterBank, Spectrogram
 
@@ -69,26 +70,6 @@ def pad_framewise_output(framewise_output: torch.Tensor, frames_num: int):
     return output
 
 
-def gem(x: torch.Tensor, p=3, eps=1e-6):
-    return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1.0 / p)
-
-
-class GeM(nn.Module):
-    def __init__(self, p=3, eps=1e-6):
-        super().__init__()
-        self.p = nn.Parameter(torch.ones(1) * p)
-        self.eps = eps
-
-    def forward(self, x):
-        return gem(x, p=self.p, eps=self.eps)
-
-    def __repr__(self):
-        return (
-            self.__class__.__name__
-            + f"(p={self.p.data.tolist()[0]:.4f}, eps={self.eps})"
-        )
-
-
 class AttBlockV2(nn.Module):
     def __init__(self, in_features: int, out_features: int, activation="linear"):
         super().__init__()
@@ -131,6 +112,10 @@ class AttBlockV2(nn.Module):
             return torch.sigmoid(x)
 
 
+def gem(x, kernel_size, p=3, eps=1e-6):
+    return F.avg_pool1d(x.clamp(min=eps).pow(p), kernel_size).pow(1.0 / p)
+
+
 class SED(nn.Module):
     def __init__(
         self,
@@ -143,9 +128,19 @@ class SED(nn.Module):
         n_mels,
         fmin,
         fmax,
+        dropout_rate=0.5,
+        freeze_spectrogram_parameters=True,
+        freeze_logmel_parameters=True,
+        use_spec_augmentation=True,
+        time_drop_width=64,
+        time_stripes_num=2,
+        freq_drop_width=8,
+        freq_stripes_num=2,
+        spec_augmentation_method=None,
         **params,
     ):
         super().__init__()
+        self.dropout_rate = dropout_rate
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
             n_fft=n_fft,
@@ -154,7 +149,7 @@ class SED(nn.Module):
             window="hann",
             center=True,
             pad_mode="reflect",
-            freeze_parameters=True,
+            freeze_parameters=freeze_spectrogram_parameters,
         )
 
         # Logmel feature extractor
@@ -167,21 +162,32 @@ class SED(nn.Module):
             ref=1.0,
             amin=1e-10,
             top_db=None,
-            freeze_parameters=True,
+            freeze_parameters=freeze_logmel_parameters,
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = None
+        if use_spec_augmentation and (spec_augmentation_method is None):
+            self.spec_augmenter = SpecAugmentation(
+                time_drop_width=time_drop_width,
+                time_stripes_num=time_stripes_num,
+                freq_drop_width=freq_drop_width,
+                freq_stripes_num=freq_stripes_num,
+            )
+        if use_spec_augmentation and (spec_augmentation_method is not None):
+            self.spec_augmenter = SpecAugmentationPlusPlus(
+                time_drop_width=time_drop_width,
+                time_stripes_num=time_stripes_num,
+                freq_drop_width=freq_drop_width,
+                freq_stripes_num=freq_stripes_num,
+                method=spec_augmentation_method,
+            )
 
         self.bn0 = nn.BatchNorm2d(n_mels)
 
-        layers = list(encoder.children())[:-2]
-        self.encoder = nn.Sequential(*layers)
+        # layers = list(encoder.children())[:-2]
+        # self.encoder = nn.Sequential(*layers)
+        self.encoder = encoder
 
         self.fc1 = nn.Linear(in_features, in_features, bias=True)
         self.att_block = AttBlockV2(in_features, num_classes, activation="sigmoid")
@@ -203,7 +209,7 @@ class SED(nn.Module):
         x = self.bn0(x)
         x = x.transpose(1, 3).contiguous()
 
-        if self.training:
+        if self.training and (self.spec_augmenter is not None):
             x = self.spec_augmenter(x)
 
         x = x.transpose(2, 3).contiguous()
@@ -214,15 +220,14 @@ class SED(nn.Module):
         x = torch.mean(x, dim=2)
 
         # channel smoothing
-        x1 = F.max_pool1d(x, kernel_size=3, stride=1, padding=1)
-        x2 = F.avg_pool1d(x, kernel_size=3, stride=1, padding=1)
-        x = x1 + x2
+        # (batch_size, channels, frames)
+        x = gem(x, kernel_size=3)
 
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=self.dropout_rate, training=self.training)
         x = x.transpose(1, 2).contiguous()
+
         x = F.relu_(self.fc1(x))
         x = x.transpose(1, 2).contiguous()
-        x = F.dropout(x, p=0.5, training=self.training)
 
         (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
         logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
