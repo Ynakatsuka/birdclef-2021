@@ -24,6 +24,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         period=20,
         num_fold=5,
         idx_fold=0,
+        secondary_target_column=None,
         **params,
     ):
         self.image_column = image_column
@@ -36,6 +37,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         self.period = period
         self.num_fold = num_fold
         self.idx_fold = idx_fold
+        self.secondary_target_column = secondary_target_column
 
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
@@ -47,6 +49,10 @@ class WaveformDataset(torch.utils.data.Dataset):
 
         self.image_filenames = df[self.image_column].tolist()
         self.targets = df[self.target_column].tolist()
+        if self.secondary_target_column is not None:
+            self.secondary_targets = (
+                df[self.secondary_target_column].apply(eval).tolist()
+            )  # lisf of list
 
         # image dir
         if self.split == "test":
@@ -80,9 +86,14 @@ class WaveformDataset(torch.utils.data.Dataset):
         x = np.nan_to_num(x)
         return x
 
-    def _preprocess_target(self, y):
+    def _preprocess_target(self, y, secondary_y=None):
         labels = np.zeros(len(self.target_unique_values), dtype="float32")
         labels[self.target_unique_values.index(y)] = 1.0
+        if (secondary_y is not None) and (self.split == "train"):
+            for sy in secondary_y:
+                if sy in self.target_unique_values:
+                    labels[self.target_unique_values.index(sy)] = 1.0
+
         return labels
 
     def __getitem__(self, idx):
@@ -93,10 +104,15 @@ class WaveformDataset(torch.utils.data.Dataset):
             os.path.join(self.input_dir, self.images_dir, ebird_code, wav_name)
         )
         x = self._preprocess_input(x, sr)
+
         if self.transform is not None:
             x = self.transform(x, self.sample_rate)
         x = np.nan_to_num(x)
 
-        y = self._preprocess_target(ebird_code)
+        secondary_ebird_code = None
+        if self.secondary_target_column is not None:
+            secondary_ebird_code = self.secondary_targets[idx]  # list
+
+        y = self._preprocess_target(ebird_code, secondary_ebird_code)
 
         return {"x": x, "y": y}
