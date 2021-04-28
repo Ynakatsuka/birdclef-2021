@@ -198,13 +198,14 @@ def build_hooks(config):
 
 
 def build_strong_transform(config):
-    strong_transform = None
+    strong_transform, p = None, None
     if hasattr(config.augmentation, "strong_transform"):
         strong_cfg = config.augmentation.get("strong_transform")
+        p = strong_cfg.p
         if hasattr(kvt.augmentation, strong_cfg.name):
             strong_transform = partial(
                 getattr(kvt.augmentation, strong_cfg.name), **strong_cfg.params
             )
         else:
             raise ValueError(f"kvt.augmentation does not contain {strong_cfg.name}")
-    return strong_transform
+    return strong_transform, p

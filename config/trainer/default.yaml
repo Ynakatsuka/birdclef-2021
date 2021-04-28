@@ -44,9 +44,9 @@ callbacks:
     _target_: pytorch_lightning.callbacks.ModelCheckpoint
     monitor: 'val_loss'
     save_last: False
-    save_top_k: 5
-    dirpath: '${save_dir}/models/'
-    filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
+    save_top_k: 1
+    dirpath: '${save_dir}/models/${experiment_name}'
+    filename: 'fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
 
 model:
   name: 'resnet34'

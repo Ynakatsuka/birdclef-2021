@@ -1,4 +1,3 @@
-# cuda11対応
 ARG BASE_TAG=staging
 
 FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu18.04 AS nvidia
@@ -42,5 +41,7 @@ RUN npm install n -g && \
     jupyter labextension install jupyterlab-plotly@4.14.3 && \
     jupyter lab build
 
-# wandb credentials
+# credentials
 COPY .netrc /root/.netrc
+RUN mkdir ./kaggle
+COPY ~/.kaggle/kaggle.json /root/.kaggle/kaggle.json

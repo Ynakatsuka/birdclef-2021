@@ -1,3 +1,4 @@
+import numpy as np
 import pytorch_lightning as pl
 import torch
 
@@ -19,8 +20,9 @@ class LightningModuleSAM(LightningModuleBase):
                 self.current_epoch
                 <= self.max_epochs - self.disable_strong_transform_in_last_epochs
             )
+            and (np.random.rand() < self.storong_transform_p)
         ):
-            x, y_a, y_b, lam = self.strong_transform(x, y)
+            x, y_a, y_b, lam, idx = self.strong_transform(x, y)
             y_hat = self.forward(x)
             loss = lam * self.hooks.loss_fn(y_hat, y_a) + (
                 1 - lam

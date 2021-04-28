@@ -1,4 +1,3 @@
-import glob
 import os
 
 import kvt.utils
@@ -33,12 +32,12 @@ def run(config):
         strong_transform=None,
     )
 
-    # load latest checkpoint
-    paths = os.path.join(
-        config.trainer.inference.dirpath, config.trainer.inference.filename
-    )
-    latest_model_path = sorted(glob.glob(paths))[-1]
-    state_dict = torch.load(latest_model_path)["state_dict"]
+    # load best checkpoint
+    dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
+    filename = f"{config.experiment_name}_fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
+    best_model_path = os.path.join(dir_path, filename)
+
+    state_dict = torch.load(best_model_path)["state_dict"]
 
     # if using dp, it is necessary to fix state dict keys
     if (

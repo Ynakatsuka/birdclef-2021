@@ -41,13 +41,15 @@ def evaluate(lightning_module, hooks, config, mode=["validation", "test"]):
 
             tbar = tqdm(enumerate(dataloader), total=total_step)
             for i, data in tbar:
-                x, y = data["x"].cuda(), data["y"].cuda()
+                x = data["x"].cuda()
 
                 outputs = lightning_module(x)
                 outputs = hooks.post_forward_fn(outputs)
 
                 aggregated_outputs.append(outputs.detach().cpu().numpy())
-                aggregated_labels.append(y.detach().cpu().numpy())
+
+                if "y" in data.keys():
+                    aggregated_labels.append(data["y"].numpy())
 
             aggregated_outputs = concatenate(aggregated_outputs)
             aggregated_labels = concatenate(aggregated_labels)

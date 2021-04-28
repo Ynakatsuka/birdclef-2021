@@ -25,6 +25,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         num_fold=5,
         idx_fold=0,
         secondary_target_column=None,
+        secondary_coef=0.1,
         **params,
     ):
         self.image_column = image_column
@@ -38,6 +39,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         self.num_fold = num_fold
         self.idx_fold = idx_fold
         self.secondary_target_column = secondary_target_column
+        self.secondary_coef = secondary_coef
 
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
@@ -56,7 +58,7 @@ class WaveformDataset(torch.utils.data.Dataset):
 
         # image dir
         if self.split == "test":
-            self.images_dir = "test_soundscapes"
+            self.images_dir = "train_soundscapes_clipped"
         else:
             self.images_dir = "train_short_audio"
 
@@ -92,7 +94,9 @@ class WaveformDataset(torch.utils.data.Dataset):
         if (secondary_y is not None) and (self.split == "train"):
             for sy in secondary_y:
                 if sy in self.target_unique_values:
-                    labels[self.target_unique_values.index(sy)] = 1.0
+                    labels[self.target_unique_values.index(sy)] = (
+                        1.0 * self.secondary_coef
+                    )
 
         return labels
 

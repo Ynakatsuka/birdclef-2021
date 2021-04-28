@@ -161,6 +161,7 @@ def register_torch_modules():
     lightning_modules = [
         kvt.lightning_modules.LightningModuleBase,
         kvt.lightning_modules.LightningModuleSAM,
+        kvt.lightning_modules.LightningModuleSpecMixUp,
     ]
     for lightning_module in lightning_modules:
         LIGHTNING_MODULES.register(lightning_module)

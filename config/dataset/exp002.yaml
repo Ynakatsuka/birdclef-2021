@@ -7,7 +7,7 @@ dataset:
     target_column: ${competition.target_column}
     target_unique_values: ${competition.target_unique_values}
     secondary_target_column: 'secondary_labels'
-    secondary_coef: 0.1
+    secondary_coef: 0.3
     input_dir: ${input_dir}
     period: 20
     sample_rate: 32000

@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from kvt.augmentation import SpecAugmentationPlusPlus
+from kvt.augmentation import SpecAugmentationPlusPlus, mixup
 from torchlibrosa.augmentation import SpecAugmentation
 from torchlibrosa.stft import LogmelFilterBank, Spectrogram
 
@@ -116,6 +117,12 @@ def gem(x, kernel_size, p=3, eps=1e-6):
     return F.avg_pool1d(x.clamp(min=eps).pow(p), kernel_size).pow(1.0 / p)
 
 
+def do_mixup(x, lam, indices):
+    shuffled_x = x[indices]
+    x = lam * x + (1 - lam) * shuffled_x
+    return x
+
+
 class SED(nn.Module):
     def __init__(
         self,
@@ -137,10 +144,17 @@ class SED(nn.Module):
         freq_drop_width=8,
         freq_stripes_num=2,
         spec_augmentation_method=None,
+        apply_mixup=False,
+        apply_spec_shuffle=False,
+        spec_shuffle_prob=0,
         **params,
     ):
         super().__init__()
         self.dropout_rate = dropout_rate
+        self.apply_mixup = apply_mixup
+        self.apply_spec_shuffle = apply_spec_shuffle
+        self.spec_shuffle_prob = spec_shuffle_prob
+
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
             n_fft=n_fft,
@@ -174,7 +188,7 @@ class SED(nn.Module):
                 freq_drop_width=freq_drop_width,
                 freq_stripes_num=freq_stripes_num,
             )
-        if use_spec_augmentation and (spec_augmentation_method is not None):
+        elif use_spec_augmentation and (spec_augmentation_method is not None):
             self.spec_augmenter = SpecAugmentationPlusPlus(
                 time_drop_width=time_drop_width,
                 time_stripes_num=time_stripes_num,
@@ -198,7 +212,7 @@ class SED(nn.Module):
         init_layer(self.fc1)
         init_bn(self.bn0)
 
-    def forward(self, input):
+    def forward(self, input, mixup_lambda=None, mixup_index=None):
         # (batch_size, 1, time_steps, freq_bins)
         x = self.spectrogram_extractor(input)
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
@@ -209,8 +223,21 @@ class SED(nn.Module):
         x = self.bn0(x)
         x = x.transpose(1, 3).contiguous()
 
+        if (
+            self.training
+            and self.apply_spec_shuffle
+            and (np.random.rand() < self.spec_shuffle_prob)
+        ):
+            # (batch_size, 1, time_steps, freq_bins)
+            idx = torch.randperm(x.shape[3])
+            x = x[:, :, :, idx]
+
         if self.training and (self.spec_augmenter is not None):
             x = self.spec_augmenter(x)
+
+        # Mixup on spectrogram
+        if self.training and self.apply_mixup and (mixup_lambda is not None):
+            x = do_mixup(x, mixup_lambda, mixup_index)
 
         x = x.transpose(2, 3).contiguous()
         # (batch_size, channels, freq, frames)

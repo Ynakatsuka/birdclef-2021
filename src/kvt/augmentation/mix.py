@@ -26,7 +26,7 @@ def rand_bbox(size, lam):
 
 
 def fftfreqnd(h, w=None, z=None):
-    """ Get bin values for discrete fourier transform of size (h, w, z)
+    """Get bin values for discrete fourier transform of size (h, w, z)
     :param h: Required, first dimension size
     :param w: Optional, second dimension size
     :param z: Optional, third dimension size
@@ -53,7 +53,7 @@ def fftfreqnd(h, w=None, z=None):
 
 
 def get_spectrum(freqs, decay_power, ch, h, w=0, z=0):
-    """ Samples a fourier image with given size and frequencies decayed by decay power
+    """Samples a fourier image with given size and frequencies decayed by decay power
     :param freqs: Bin values for the discrete fourier transform
     :param decay_power: Decay power for frequency decay prop 1/f**d
     :param ch: Number of channels for the resulting mask
@@ -74,7 +74,7 @@ def get_spectrum(freqs, decay_power, ch, h, w=0, z=0):
 
 
 def make_low_freq_image(decay, shape, ch=1):
-    """ Sample a low frequency image from fourier space
+    """Sample a low frequency image from fourier space
     :param decay_power: Decay power for frequency decay prop 1/f**d
     :param shape: Shape of desired mask, list up to 3 dims
     :param ch: Number of channels for desired mask
@@ -98,7 +98,7 @@ def make_low_freq_image(decay, shape, ch=1):
 
 
 def sample_lam(alpha, reformulate=False):
-    """ Sample a lambda from symmetric beta distribution with given alpha
+    """Sample a lambda from symmetric beta distribution with given alpha
     :param alpha: Alpha value for beta distribution
     :param reformulate: If True, uses the reformulation of [1].
     """
@@ -111,7 +111,7 @@ def sample_lam(alpha, reformulate=False):
 
 
 def binarise_mask(mask, lam, in_shape, max_soft=0.0):
-    """ Binarises a given low frequency image such that it has mean lambda.
+    """Binarises a given low frequency image such that it has mean lambda.
     :param mask: Low frequency image, usually the result of `make_low_freq_image`
     :param lam: Mean value of final mask
     :param in_shape: Shape of inputs
@@ -143,7 +143,7 @@ def binarise_mask(mask, lam, in_shape, max_soft=0.0):
 
 
 def sample_mask(alpha, decay_power, shape, max_soft=0.0, reformulate=False):
-    """ Samples a mean lambda from beta distribution parametrised by alpha, creates a low frequency image and binarises
+    """Samples a mean lambda from beta distribution parametrised by alpha, creates a low frequency image and binarises
     it based on this lambda
     :param alpha: Alpha value for beta distribution from which to sample mean of mask
     :param decay_power: Decay power for frequency decay prop 1/f**d
@@ -176,7 +176,7 @@ def cutmix(data, target, alpha):
     # adjust lambda to exactly match pixel ratio
     lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (data.size()[-1] * data.size()[-2]))
 
-    return new_data, target, shuffled_target, lam
+    return new_data, target, shuffled_target, lam, indices
 
 
 def mixup(data, target, alpha):
@@ -187,7 +187,7 @@ def mixup(data, target, alpha):
     lam = np.clip(np.random.beta(alpha, alpha), 0.3, 0.7)
     data = lam * data + (1 - lam) * shuffled_data
 
-    return data, target, shuffled_target, lam
+    return data, target, shuffled_target, lam, indices
 
 
 def fmix(data, target, alpha, decay_power, shape, max_soft=0.0, device="GPU"):
@@ -197,4 +197,4 @@ def fmix(data, target, alpha, decay_power, shape, max_soft=0.0, device="GPU"):
     shuffled_target = target[indices]
     x1 = torch.from_numpy(mask) * data
     x2 = torch.from_numpy(1 - mask) * shuffled_data
-    return (x1 + x2), target, shuffled_target, lam
+    return (x1 + x2), target, shuffled_target, lam, indices

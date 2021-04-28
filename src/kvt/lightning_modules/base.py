@@ -13,6 +13,7 @@ class LightningModuleBase(pl.LightningModule):
         dataloaders,
         transform=None,
         strong_transform=None,
+        storong_transform_p=None,
         disable_strong_transform_in_last_epochs=5,
         max_epochs=None,
     ):
@@ -24,6 +25,7 @@ class LightningModuleBase(pl.LightningModule):
         self.dataloaders = dataloaders
         self.transform = transform
         self.strong_transform = strong_transform
+        self.storong_transform_p = storong_transform_p
         self.disable_strong_transform_in_last_epochs = (
             disable_strong_transform_in_last_epochs
         )
@@ -36,8 +38,8 @@ class LightningModuleBase(pl.LightningModule):
         ):
             raise ValueError("metric_fn must be dict.")
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, x, **kwargs):
+        return self.model(x, **kwargs)
 
     def training_step(self, batch, batch_nb):
         x, y = batch["x"], batch["y"]
@@ -52,8 +54,9 @@ class LightningModuleBase(pl.LightningModule):
                 self.current_epoch
                 <= self.max_epochs - self.disable_strong_transform_in_last_epochs
             )
+            and (np.random.rand() < self.storong_transform_p)
         ):
-            x, y_a, y_b, lam = self.strong_transform(x, y)
+            x, y_a, y_b, lam, idx = self.strong_transform(x, y)
             y_hat = self.forward(x)
             loss = lam * self.hooks.loss_fn(y_hat, y_a) + (
                 1 - lam

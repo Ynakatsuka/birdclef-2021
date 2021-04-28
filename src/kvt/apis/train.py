@@ -25,6 +25,7 @@ from kvt.builder import (
     build_strong_transform,
 )
 from kvt.evaluate import evaluate
+from omegaconf import OmegaConf, open_dict
 from pytorch_lightning.plugins import DDPPlugin
 from tqdm import tqdm
 
@@ -86,8 +87,10 @@ def run(config):
     # debug
     if config.debug:
         logger = None
-        config.trainer.trainer.max_epochs = None
-        config.trainer.trainer.max_steps = 100
+        OmegaConf.set_struct(config, True)
+        with open_dict(config):
+            config.trainer.trainer.max_epochs = None
+            config.trainer.trainer.max_steps = 100
 
     # logging for wandb or mlflow
     if hasattr(logger, "log_hyperparams"):
@@ -118,7 +121,7 @@ def run(config):
     dataloaders = build_dataloaders(config)
 
     # build strong transform
-    strong_transform = build_strong_transform(config)
+    strong_transform, storong_transform_p = build_strong_transform(config)
 
     # build lightning module
     lightning_module = build_lightning_module(
@@ -129,6 +132,7 @@ def run(config):
         hooks=hooks,
         dataloaders=dataloaders,
         strong_transform=strong_transform,
+        storong_transform_p=storong_transform_p,
     )
 
     # build plugins
@@ -144,7 +148,7 @@ def run(config):
 
     # best model path
     dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
-    filename = f"{config.experiment_name}_fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
+    filename = f"fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
     best_model_path = os.path.join(dir_path, filename)
 
     # train loop
@@ -159,7 +163,7 @@ def run(config):
         path = trainer.checkpoint_callback.best_model_path
         # copy best model
         subprocess.run(
-            f"cp {path} {best_model_path}", shell=True, stdout=PIPE, stderr=PIPE
+            f"mv {path} {best_model_path}", shell=True, stdout=PIPE, stderr=PIPE
         )
 
     # log best model

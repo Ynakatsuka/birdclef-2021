@@ -15,3 +15,4 @@ jpeg4py>=0.1.4
 torchlibrosa>=0.0.9
 torchxrayvision>=0.0.25
 audiomentations>=0.16.0
+colorednoise>=1.1.1

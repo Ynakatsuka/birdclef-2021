@@ -2,12 +2,12 @@
 skip_training: False
 
 train:
-  batch_size: 32
+  batch_size: 64
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 64
+  batch_size: 128
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
@@ -53,7 +53,7 @@ model:
   params:
     num_classes: 397
     backbone: 
-      name: 'densenet121'
+      name: 'tf_efficientnet_b0_ns'
       params:
         in_channels: 1
         pretrained: True
@@ -68,6 +68,8 @@ model:
     time_stripes_num: 2
     freq_drop_width: 8
     freq_stripes_num: 2
+    apply_spec_shuffle: True
+    spec_shuffle_prob: 0.2
 
 loss:
   name: 'BCEFocal2WayLossHook'
