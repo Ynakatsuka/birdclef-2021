@@ -34,7 +34,7 @@ def run(config):
 
     # load best checkpoint
     dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
-    filename = f"{config.experiment_name}_fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
+    filename = f"fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
     best_model_path = os.path.join(dir_path, filename)
 
     state_dict = torch.load(best_model_path)["state_dict"]
