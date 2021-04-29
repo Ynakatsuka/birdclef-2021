@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf, open_dict
 from torch.utils.data import DataLoader, Dataset
 
 sys.path.append("src/")
@@ -19,9 +19,9 @@ from kvt.builder import build_hooks, build_lightning_module, build_model
 from kvt.evaluate import evaluate
 from kvt.initialization import initialize
 from kvt.registry import TRANSFORMS
-from kvt.utils import build_from_config
+from kvt.utils import build_from_config, is_kaggle_kernel
 
-if "kaggle" in os.listdir("./"):
+if is_kaggle_kernel():
     DATADIR = "../input/birdclef-2021/test_soundscapes/"
 else:
     DATADIR = "data/input/test_soundscapes/"
@@ -108,6 +108,11 @@ def build_test_dataloaders(config):
 
 
 def run(config):
+    # overwrite path
+    OmegaConf.set_struct(config, True)
+    with open_dict(config):
+        config.trainer.model.params.backbone.params.pretrained = False
+
     # build model
     model = build_model(config)
 
@@ -129,7 +134,12 @@ def run(config):
     )
 
     # load best checkpoint
-    dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
+    if is_kaggle_kernel():
+        dir_path = os.path.join(
+            "../input/birdclef-2021-models/", config.experiment_name
+        )
+    else:
+        dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
     filename = f"fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
     best_model_path = os.path.join(dir_path, filename)
 
