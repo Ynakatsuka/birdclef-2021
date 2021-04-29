@@ -7,6 +7,9 @@ logs/
 notebook/
 submission/*
 .vscode/*
+
+# Credentials
+kaggle.json
 .netrc
 
 # General
