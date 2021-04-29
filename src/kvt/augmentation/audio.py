@@ -4,14 +4,13 @@ from audiomentations.core.transforms_interface import BaseWaveformTransform
 
 
 class PinkNoise(BaseWaveformTransform):
-    def __init__(self, always_apply=False, p=0.5, min_snr=5, max_snr=20, sr=32000):
-        super().__init__(always_apply, p)
+    def __init__(self, always_apply=False, p=0.5, min_snr=5, max_snr=20):
+        super().__init__(p)
 
         self.min_snr = min_snr
         self.max_snr = max_snr
-        self.sr = sr
 
-    def apply(self, y: np.ndarray, **params):
+    def apply(self, y: np.ndarray, sr):
         snr = np.random.uniform(self.min_snr, self.max_snr)
         a_signal = np.sqrt(y ** 2).max()
         a_noise = a_signal / (10 ** (snr / 20))
@@ -67,10 +66,10 @@ def volume_up(y: np.ndarray, db: float):
 
 class RandomVolume(BaseWaveformTransform):
     def __init__(self, always_apply=False, p=0.5, limit=10):
-        super().__init__(always_apply, p)
+        super().__init__(p)
         self.limit = limit
 
-    def apply(self, y: np.ndarray, **params):
+    def apply(self, y: np.ndarray, sr):
         db = np.random.uniform(-self.limit, self.limit)
         if db >= 0:
             return volume_up(y, db)
@@ -80,10 +79,10 @@ class RandomVolume(BaseWaveformTransform):
 
 class CosineVolume(BaseWaveformTransform):
     def __init__(self, always_apply=False, p=0.5, limit=10):
-        super().__init__(always_apply, p)
+        super().__init__(p)
         self.limit = limit
 
-    def apply(self, y: np.ndarray, **params):
+    def apply(self, y: np.ndarray, sr):
         db = np.random.uniform(-self.limit, self.limit)
         cosine = np.cos(np.arange(len(y)) / len(y) * np.pi * 2)
         dbs = _db2float(cosine * db)
