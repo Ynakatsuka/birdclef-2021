@@ -19,7 +19,7 @@ jobs:
       - run:
           name: upload to kaggle dataset
           command: |
-            kaggle datasets version -p ./data/kaggle/ -d
+            kaggle datasets version -p ./data/kaggle/ -m "update" -d
 workflows:
   version: 2
   kaggle:
