@@ -123,13 +123,13 @@ def update_input_layer(model, in_channels):
             for ll in l.children():
                 assert ll.bias is None
                 data = torch.mean(ll.weight, axis=1).unsqueeze(1)
-                data = torch.tile(data, (1, in_channels, 1, 1))
+                data = data.repeat((1, in_channels, 1, 1))
                 ll.weight.data = data
                 break
         else:
             assert l.bias is None
             data = torch.mean(l.weight, axis=1).unsqueeze(1)
-            data = torch.tile(data, (1, in_channels, 1, 1))
+            data = data.repeat((1, in_channels, 1, 1))
             l.weight.data = data
         break
     return model
