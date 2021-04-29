@@ -14,6 +14,13 @@ except OSError:
     KaggleApi = None
 
 
+def is_kaggle_kernel():
+    if "kaggle" in os.listdir("./"):
+        return True
+    else:
+        return False
+
+
 def upload_dataset(title, dirname, user_id, dir_mode="zip"):
     dataset_metadata = {}
     dataset_metadata["id"] = f"{user_id}/{title}"

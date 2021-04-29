@@ -1,6 +1,5 @@
 import random
 
-from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 import numpy as np
 import pandas as pd
 from scipy.sparse import coo_matrix
@@ -13,6 +12,7 @@ class MultilabelStratifiedGroupKFold(_BaseKFold):
 
     reference: https://www.kaggle.com/jakubwasikowski/stratified-group-k-fold-cross-validation
     """
+
     def __init__(self, n_splits=5, random_state=None, shuffle=False):
         super().__init__(n_splits=n_splits, random_state=random_state, shuffle=shuffle)
 
@@ -37,9 +37,12 @@ class MultilabelStratifiedGroupKFold(_BaseKFold):
 
         # count labels by group id.
         col, row = np.array(sorted(enumerate(aid_arr), key=lambda x: x[1])).T
-        cnts_by_group = coo_matrix(
-            (np.ones(len(y)), (row, col))
-        ).dot(coo_matrix(y)).toarray().astype(int)
+        cnts_by_group = (
+            coo_matrix((np.ones(len(y)), (row, col)))
+            .dot(coo_matrix(y))
+            .toarray()
+            .astype(int)
+        )
         cnts_by_fold = np.zeros((self.n_splits, n_class), int)
 
         groups_by_fold = [[] for fid in range(self.n_splits)]

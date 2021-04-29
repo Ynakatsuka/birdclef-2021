@@ -1,5 +1,9 @@
-import microsoftvision
 import torch.nn as nn
+
+try:
+    import microsoftvision
+except ImportError:
+    microsoftvision = None
 
 
 class ResNet(nn.Module):

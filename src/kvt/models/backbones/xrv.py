@@ -1,4 +1,7 @@
-import torchxrayvision as xrv
+try:
+    import torchxrayvision as xrv
+except ImportError:
+    xrv = None
 
 
 def densenet_all_xrv(num_classes=1000, pretrained=False, **kwargs):
