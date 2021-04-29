@@ -1,4 +1,7 @@
-import colorednoise as cn
+try:
+    import colorednoise as cn
+except ImportError:
+    cn = None
 import numpy as np
 from audiomentations.core.transforms_interface import BaseWaveformTransform
 
