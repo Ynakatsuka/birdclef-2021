@@ -9,7 +9,6 @@ import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch_optimizer
 import torchvision
 import torchvision.models
 
@@ -32,6 +31,11 @@ from kvt.registry import (
     SCHEDULERS,
     TRANSFORMS,
 )
+
+try:
+    import torch_optimizer
+except ImportError:
+    torch_optimizer = None
 
 
 def register_torch_modules():
@@ -138,11 +142,12 @@ def register_torch_modules():
     for optimizer in optimizers:
         OPTIMIZERS.register(optimizer)
 
-    for name, cls in torch_optimizer.__dict__.items():
-        if not callable(cls):
-            continue
-        if hasattr(cls, "__name__"):
-            OPTIMIZERS.register(cls)
+    if torch_optimizer is not None:
+        for name, cls in torch_optimizer.__dict__.items():
+            if not callable(cls):
+                continue
+            if hasattr(cls, "__name__"):
+                OPTIMIZERS.register(cls)
 
     # register schedulers
     schedulers = [

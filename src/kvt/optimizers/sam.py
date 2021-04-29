@@ -1,13 +1,10 @@
 import torch
-import torch_optimizer
 
 
 class SAM(torch.optim.Optimizer):
     """ Ref: https://github.com/davda54/sam/blob/main/sam.py"""
 
-    def __init__(
-        self, params, base_optimizer=torch_optimizer.RAdam, rho=0.05, **kwargs
-    ):
+    def __init__(self, params, base_optimizer=torch.optim.Adam, rho=0.05, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
 
         defaults = dict(rho=rho, **kwargs)
