@@ -4,7 +4,14 @@ import os
 import time
 from datetime import timezone
 
-from kaggle.api.kaggle_api_extended import KaggleApi
+try:
+    from kaggle.api.kaggle_api_extended import KaggleApi
+except ImportError:
+    print("kaggle is not installed yet.")
+    KaggleApi = None
+except OSError:
+    print("kaggle.json is not found.")
+    KaggleApi = None
 
 
 def upload_dataset(title, dirname, user_id, dir_mode="zip"):
