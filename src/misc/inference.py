@@ -19,12 +19,7 @@ from kvt.builder import build_hooks, build_lightning_module, build_model
 from kvt.evaluate import evaluate
 from kvt.initialization import initialize
 from kvt.registry import TRANSFORMS
-from kvt.utils import build_from_config, is_kaggle_kernel
-
-if is_kaggle_kernel():
-    DATADIR = "../input/birdclef-2021/test_soundscapes/"
-else:
-    DATADIR = "data/input/test_soundscapes/"
+from kvt.utils import build_from_config
 
 
 class TestDataset(Dataset):
@@ -74,8 +69,13 @@ def build_test_dataloaders(config):
     )
 
     dataloaders = []
+    ids = []
 
-    data_dir = os.path.join(hydra.utils.get_original_cwd(), DATADIR, "*.ogg")
+    data_dir = os.path.join(
+        hydra.utils.get_original_cwd(),
+        config.trainer.inference.input_dir,
+        "*.ogg",
+    )
     all_audios = list(glob.glob(data_dir))
     for audio_path in all_audios:
         clip, _ = sf.read(audio_path)
@@ -103,8 +103,9 @@ def build_test_dataloaders(config):
 
         result = {"dataloader": dataloader, "split": "test", "mode": "test"}
         dataloaders.append(result)
+        ids.append(row_ids)
 
-    return dataloaders
+    return dataloaders, ids
 
 
 def run(config):
@@ -120,7 +121,7 @@ def run(config):
     hooks = build_hooks(config)
 
     # build datasets
-    dataloaders = build_test_dataloaders(config)
+    dataloaders, row_ids = build_test_dataloaders(config)
 
     # build lightning module
     lightning_module = build_lightning_module(
@@ -134,12 +135,7 @@ def run(config):
     )
 
     # load best checkpoint
-    if is_kaggle_kernel():
-        dir_path = os.path.join(
-            "../input/birdclef-2021-models/", config.experiment_name
-        )
-    else:
-        dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
+    dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
     filename = f"fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
     best_model_path = os.path.join(dir_path, filename)
 
@@ -155,7 +151,29 @@ def run(config):
     lightning_module.model.load_state_dict(state_dict)
 
     # evaluate
-    evaluate(lightning_module, hooks, config, mode="test")
+    _, outputs = evaluate(
+        lightning_module,
+        hooks,
+        config,
+        mode="test",
+        return_predictions=True,
+    )
+
+    # build predictions dataframe
+    results = []
+    for row_id, output in zip(row_ids, outputs):
+        columns = [f"pred_{i:03}" for i in range(output.shape[1])]
+        df = pd.DataFrame(output, columns=columns)
+        df["row_id"] = row_id
+        results.append(df)
+    results = pd.concat(results)
+
+    # save predictions dataframe
+    path = os.path.join(
+        config.trainer.inference.dirpath,
+        config.trainer.inference.filename,
+    )
+    results.to_pickle(path)
 
 
 @hydra.main(config_path="../../config", config_name="default")

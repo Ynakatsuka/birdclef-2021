@@ -6,7 +6,13 @@ import torch
 from tqdm import tqdm
 
 
-def evaluate(lightning_module, hooks, config, mode=["validation", "test"]):
+def evaluate(
+    lightning_module,
+    hooks,
+    config,
+    mode=["validation", "test"],
+    return_predictions=False,
+):
     print("---------------------------------------------------------------")
     print("Evaluate")
 
@@ -22,6 +28,7 @@ def evaluate(lightning_module, hooks, config, mode=["validation", "test"]):
         return v
 
     metric_dict = {}
+    final_outputs = []
 
     lightning_module.eval()
     lightning_module.cuda()
@@ -54,6 +61,8 @@ def evaluate(lightning_module, hooks, config, mode=["validation", "test"]):
             aggregated_outputs = concatenate(aggregated_outputs)
             aggregated_labels = concatenate(aggregated_labels)
 
+            final_outputs.append(aggregated_outputs)
+
             if config.trainer.evaluation.save_prediction:
                 if not os.path.exists(config.trainer.evaluation.dirpath):
                     os.makedirs(config.trainer.evaluation.dirpath)
@@ -74,4 +83,7 @@ def evaluate(lightning_module, hooks, config, mode=["validation", "test"]):
                     else:
                         metric_dict[f"{split}_{name}_on_all"] = result
 
-    return metric_dict
+    if return_predictions:
+        return metric_dict, final_outputs
+    else:
+        return metric_dict
