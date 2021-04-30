@@ -89,4 +89,4 @@ class CosineVolume(BaseWaveformTransform):
         db = np.random.uniform(-self.limit, self.limit)
         cosine = np.cos(np.arange(len(y)) / len(y) * np.pi * 2)
         dbs = _db2float(cosine * db)
-        return y * dbs
+        return (y * dbs).astype("float32")
