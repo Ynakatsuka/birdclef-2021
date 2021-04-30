@@ -31,9 +31,9 @@ trainer:
   stochastic_weight_avg: True
 
 inference:
+  input_dir: '${input_dir}/test_soundscapes/'
   dirpath: '${save_dir}/predictions/'
-  filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}_{epoch:03d}.pkl'
-
+  filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.pkl'
 logger:
   _target_: pytorch_lightning.loggers.WandbLogger
   project: ${project}
