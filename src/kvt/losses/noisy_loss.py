@@ -112,7 +112,7 @@ def _check_input_type(x, y, loss):
 
 class OUSMLoss(nn.Module):
     """
-    Implementation of 
+    Implementation of
     Loss with Online Uncertainty Sample Mining:
     https://arxiv.org/pdf/1901.07759.pdf
     # Params
@@ -160,7 +160,7 @@ class JointOptimizationLoss(nn.Module):
     # Params:
     alpha, beta: see original paper
     window: window size to calculate pseudo labels
-    trigger: (the epoch to start to save pseudo labels, 
+    trigger: (the epoch to start to save pseudo labels,
               the epoch to start to train on pseudo labels)
     """
 
@@ -243,7 +243,7 @@ class JointOptimizationLoss(nn.Module):
 
 class SymmetricCrossEntropy(nn.Module):
     """
-    Reimplementation of 
+    Reimplementation of
     Symmetric Loss:
     https://arxiv.org/pdf/1908.06112.pdf
     """
@@ -326,8 +326,8 @@ class SymmetricBinaryFocalLoss(nn.Module):
 
 class IterativeSelfLearningLoss(nn.Module):
     """
-    Implementation of 
-    Deep Self-Learning From Noisy Labels: 
+    Implementation of
+    Deep Self-Learning From Noisy Labels:
     https://arxiv.org/pdf/1908.02160.pdf
     """
 

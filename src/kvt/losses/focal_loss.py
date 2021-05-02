@@ -37,7 +37,7 @@ class FocalLoss(nn.Module):
 
 
 class BinaryFocalLoss(nn.Module):
-    def __init__(self, gamma=2, alpha=0.25, pos_weight=None, **_):
+    def __init__(self, gamma=2, alpha=None, pos_weight=None, **_):
         super().__init__()
         self.gamma = gamma
         self.alpha = alpha
@@ -69,6 +69,51 @@ class BinaryFocalLoss(nn.Module):
         )
         invprobs = F.logsigmoid(-input * (target * 2 - 1))
         loss = (invprobs * self.gamma).exp() * loss
+        if weight is not None:
+            loss = loss * weight
+
+        if reduction:
+            return loss.mean()
+        else:
+            return loss
+
+
+class BinaryReducedFocalLoss(nn.Module):
+    def __init__(self, gamma=2, alpha=None, pos_weight=None, threshold=0.5, **_):
+        super().__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.pos_weight = pos_weight
+        self.threshold = threshold
+
+    def forward(self, input, target, reduction=True, weight=None):
+        target = target.float()
+
+        input = input.view(-1, 1)
+        target = target.view(-1, 1)
+        assert target.size() == input.size(), f"{target.size()} vs {input.size()}"
+        if weight is not None:
+            assert target.size() == weight.size()
+
+        # For test
+        if isinstance(self.pos_weight, float) or isinstance(self.pos_weight, int):
+            weight = target * (self.pos_weight - 1.0) + 1.0
+        else:
+            if weight is None:
+                weight = target + 2.0
+
+        max_val = (-input).clamp(min=0)
+
+        loss = (
+            input
+            - input * target
+            + max_val
+            + ((-max_val).exp() + (-input - max_val).exp()).log()
+        )
+        invprobs = F.logsigmoid(-input * (target * 2 - 1))
+        invprobs = torch.where(input.gt(0), invprobs, 0)
+
+        loss = (invprobs / self.threshold * self.gamma).exp() * loss
         if weight is not None:
             loss = loss * weight
 
