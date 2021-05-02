@@ -75,6 +75,9 @@ def build_test_dataloaders(config):
         "*.ogg",
     )
     all_audios = list(glob.glob(data_dir))
+    print(data_dir)
+    print(all_audios)
+
     for audio_path in all_audios:
         clip, _ = sf.read(audio_path)
         name = audio_path.split("/")[-1]
