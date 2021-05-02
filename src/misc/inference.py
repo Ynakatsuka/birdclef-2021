@@ -144,7 +144,7 @@ def run(config):
     # inference
     for i, (dataloaders, row_ids) in enumerate(build_test_dataloaders(config)):
         lightning_module.dataloaders = dataloaders
-        _, outputs = evaluate(
+        _, output = evaluate(
             lightning_module,
             hooks,
             config,
@@ -154,7 +154,7 @@ def run(config):
 
         columns = [f"pred_{i:03}" for i in range(output.shape[1])]
         output = pd.DataFrame(output, columns=columns)
-        output["row_id"] = row_id
+        output["row_id"] = row_ids
 
         # save predictions dataframe
         path = os.path.join(
