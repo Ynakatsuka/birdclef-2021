@@ -34,7 +34,6 @@ class TestDataset(Dataset):
     def __getitem__(self, idx: int):
         SR = 32000
         sample = self.df.loc[idx, :]
-        row_id = sample.row_id
 
         end_seconds = int(sample.seconds)
         start_seconds = int(end_seconds - 5)
@@ -72,7 +71,6 @@ def build_test_dataloaders(config):
     ids = []
 
     data_dir = os.path.join(
-        hydra.utils.get_original_cwd(),
         config.trainer.inference.input_dir,
         "*.ogg",
     )
