@@ -7,7 +7,7 @@ train:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 64
+  batch_size: 128
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
@@ -58,7 +58,6 @@ model:
       params:
         in_channels: 1
         pretrained: True
-        drop_path_rate: 0.2
     n_fft: 2048
     hop_length: 512
     sample_rate: ${dataset.dataset.params.sample_rate}
@@ -73,7 +72,7 @@ model:
     spec_augmentation_method: 'cm'
 
 loss:
-  name: 'BCEFocal2WayLossHook'
+  name: 'IterativeSelfLearningLoss2WayLossHook'
 
 metrics: 
   f1_30:

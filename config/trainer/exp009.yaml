@@ -7,7 +7,7 @@ train:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 128
+  batch_size: 64
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'

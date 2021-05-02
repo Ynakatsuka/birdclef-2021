@@ -58,7 +58,6 @@ model:
       params:
         in_channels: 1
         pretrained: True
-        drop_path_rate: 0.2
     n_fft: 2048
     hop_length: 512
     sample_rate: ${dataset.dataset.params.sample_rate}
