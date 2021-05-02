@@ -75,8 +75,6 @@ def build_test_dataloaders(config):
         "*.ogg",
     )
     all_audios = list(glob.glob(data_dir))
-    print(data_dir)
-    print(all_audios)
 
     for audio_path in all_audios:
         clip, _ = sf.read(audio_path)
@@ -98,15 +96,10 @@ def build_test_dataloaders(config):
             shuffle=False,
             batch_size=batch_size,
             drop_last=False,
-            num_workers=4,
-            pin_memory=True,
         )
 
-        result = {"dataloader": dataloader, "split": "test", "mode": "test"}
-        dataloaders.append(result)
-        ids.append(row_ids)
-
-    return dataloaders, ids
+        result = [{"dataloader": dataloader, "split": "test", "mode": "test"}]
+        yield result, row_ids
 
 
 def run(config):
@@ -121,9 +114,6 @@ def run(config):
     # build hooks
     hooks = build_hooks(config)
 
-    # build datasets
-    dataloaders, row_ids = build_test_dataloaders(config)
-
     # build lightning module
     lightning_module = build_lightning_module(
         config,
@@ -131,7 +121,7 @@ def run(config):
         optimizer=None,
         scheduler=None,
         hooks=hooks,
-        dataloaders=dataloaders,
+        dataloaders=None,
         strong_transform=None,
     )
 
@@ -151,30 +141,27 @@ def run(config):
 
     lightning_module.model.load_state_dict(state_dict)
 
-    # evaluate
-    _, outputs = evaluate(
-        lightning_module,
-        hooks,
-        config,
-        mode="test",
-        return_predictions=True,
-    )
+    # inference
+    for i, (dataloaders, row_ids) in enumerate(build_test_dataloaders(config)):
+        lightning_module.dataloaders = dataloaders
+        _, outputs = evaluate(
+            lightning_module,
+            hooks,
+            config,
+            mode="test",
+            return_predictions=True,
+        )
 
-    # build predictions dataframe
-    results = []
-    for row_id, output in zip(row_ids, outputs):
         columns = [f"pred_{i:03}" for i in range(output.shape[1])]
-        df = pd.DataFrame(output, columns=columns)
-        df["row_id"] = row_id
-        results.append(df)
-    results = pd.concat(results)
+        output = pd.DataFrame(output, columns=columns)
+        output["row_id"] = row_id
 
-    # save predictions dataframe
-    path = os.path.join(
-        config.trainer.inference.dirpath,
-        config.trainer.inference.filename,
-    )
-    results.to_pickle(path)
+        # save predictions dataframe
+        path = os.path.join(
+            config.trainer.inference.dirpath,
+            f"{i:03d}_" + config.trainer.inference.filename,
+        )
+        output.to_pickle(path)
 
 
 @hydra.main(config_path="../../config", config_name="default")
