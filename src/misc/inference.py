@@ -142,6 +142,7 @@ def run(config):
     lightning_module.model.load_state_dict(state_dict)
 
     # inference
+    columns = [f"pred_{i:03}" for i in range(config.trainer.model.params.num_classes)]
     for i, (dataloaders, row_ids) in enumerate(build_test_dataloaders(config)):
         lightning_module.dataloaders = dataloaders
         _, output = evaluate(
@@ -152,8 +153,7 @@ def run(config):
             return_predictions=True,
         )
 
-        columns = [f"pred_{i:03}" for i in range(output.shape[1])]
-        output = pd.DataFrame(output, columns=columns)
+        output = pd.DataFrame(output[0], columns=columns)
         output["row_id"] = row_ids
 
         # save predictions dataframe
