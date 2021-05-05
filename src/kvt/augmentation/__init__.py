@@ -1,4 +1,11 @@
-from .audio import CosineVolume, PinkNoise, RandomVolume
+from .audio import (
+    CosineVolume,
+    PinkNoise,
+    RandomVolume,
+    SpeedTuning,
+    StretchAudio,
+    TimeShift,
+)
 from .augmix import RandomAugMix
 from .autoaugment import ImageNetPolicy
 from .block_fade import BlockFade
