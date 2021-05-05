@@ -22,6 +22,9 @@ RUN conda remove --force -y pytorch torchvision torchaudio cpuonly && \
 
 RUN pip install -r /tmp/requirements.txt
 
+# timm
+RUN pip install git+https://github.com/rwightman/pytorch-image-models/ -b v0.1-rs-weights
+
 # nodejs, jupyterlab extention
 RUN npm install n -g && \
     n 15.14.0 && \
