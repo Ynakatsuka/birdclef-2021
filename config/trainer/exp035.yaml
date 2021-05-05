@@ -2,7 +2,7 @@
 skip_training: False
 
 train:
-  batch_size: 64
+  batch_size: 8
   backbone_lr_ratio:
   encoder_lr_ratio:
 
@@ -28,7 +28,7 @@ trainer:
   benchmark: True
   deterministic: True
   num_sanity_val_steps: 0
-  stochastic_weight_avg: True
+  # stochastic_weight_avg: True
 
 inference:
   input_dir: '${input_dir}/test_soundscapes/'
@@ -54,7 +54,7 @@ model:
   params:
     num_classes: 397
     backbone: 
-      name: 'tf_efficientnet_b0_ns'
+      name: 'nfnet_l0'
       params:
         in_chans: 1
         pretrained: True
