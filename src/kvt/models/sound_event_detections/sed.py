@@ -279,3 +279,322 @@ class SED(nn.Module):
         }
 
         return output_dict
+
+
+class SEDV2(SED):
+    """additional inputs"""
+
+    def __init__(
+        self,
+        encoder,
+        in_features,
+        num_classes,
+        n_fft,
+        hop_length,
+        sample_rate,
+        n_mels,
+        fmin,
+        fmax,
+        dropout_rate=0.5,
+        freeze_spectrogram_parameters=True,
+        freeze_logmel_parameters=True,
+        use_spec_augmentation=True,
+        time_drop_width=64,
+        time_stripes_num=2,
+        freq_drop_width=8,
+        freq_stripes_num=2,
+        spec_augmentation_method=None,
+        apply_mixup=False,
+        apply_spec_shuffle=False,
+        spec_shuffle_prob=0,
+        **params,
+    ):
+        super().__init__(
+            encoder,
+            in_features + 2,
+            num_classes,
+            n_fft,
+            hop_length,
+            sample_rate,
+            n_mels,
+            fmin,
+            fmax,
+            dropout_rate,
+            freeze_spectrogram_parameters,
+            freeze_logmel_parameters,
+            use_spec_augmentation,
+            time_drop_width,
+            time_stripes_num,
+            freq_drop_width,
+            freq_stripes_num,
+            spec_augmentation_method,
+            apply_mixup,
+            apply_spec_shuffle,
+            spec_shuffle_prob,
+        )
+
+        self.fc2 = nn.Linear(2, 2, bias=True)
+
+    def forward(self, input, additional_x, mixup_lambda=None, mixup_index=None):
+        # (batch_size, 1, time_steps, freq_bins)
+        x = self.spectrogram_extractor(input)
+        x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
+
+        frames_num = x.shape[2]
+
+        x = x.transpose(1, 3).contiguous()
+        x = self.bn0(x)
+        x = x.transpose(1, 3).contiguous()
+
+        if (
+            self.training
+            and self.apply_spec_shuffle
+            and (np.random.rand() < self.spec_shuffle_prob)
+        ):
+            # (batch_size, 1, time_steps, freq_bins)
+            idx = torch.randperm(x.shape[3])
+            x = x[:, :, :, idx]
+
+        if self.training and (self.spec_augmenter is not None):
+            x = self.spec_augmenter(x)
+
+        # Mixup on spectrogram
+        if self.training and self.apply_mixup and (mixup_lambda is not None):
+            x = do_mixup(x, mixup_lambda, mixup_index)
+
+        x = x.transpose(2, 3).contiguous()
+        # (batch_size, channels, freq, frames)
+        x = self.encoder(x)
+
+        # (batch_size, channels, frames)
+        x = torch.mean(x, dim=2)
+
+        # channel smoothing
+        # (batch_size, channels, frames)
+        x = gem(x, kernel_size=3)
+
+        # (batch_size, channels+2, frames)
+        y = self.fc2(additional_x)
+        x = torch.cat(
+            (x, y.unsqueeze(-1).repeat((1, 1, x.shape[-1]))),
+            dim=1,
+        )
+
+        x = F.dropout(x, p=self.dropout_rate, training=self.training)
+        x = x.transpose(1, 2).contiguous()
+
+        x = F.relu_(self.fc1(x))
+        x = x.transpose(1, 2).contiguous()
+
+        (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
+        logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
+        segmentwise_logit = self.att_block.cla(x).transpose(1, 2).contiguous()
+        segmentwise_output = segmentwise_output.transpose(1, 2).contiguous()
+
+        interpolate_ratio = frames_num // segmentwise_output.size(1)
+
+        # Get framewise output
+        framewise_output = interpolate(segmentwise_output, interpolate_ratio)
+        framewise_output = pad_framewise_output(framewise_output, frames_num)
+
+        framewise_logit = interpolate(segmentwise_logit, interpolate_ratio)
+        framewise_logit = pad_framewise_output(framewise_logit, frames_num)
+
+        output_dict = {
+            "framewise_output": framewise_output,
+            "segmentwise_output": segmentwise_output,
+            "logit": logit,
+            "framewise_logit": framewise_logit,
+            "clipwise_output": clipwise_output,
+        }
+
+        return output_dict
+
+
+class SEDV3(SED):
+    """densenet"""
+
+    def __init__(
+        self,
+        encoder,
+        in_features,
+        num_classes,
+        n_fft,
+        hop_length,
+        sample_rate,
+        n_mels,
+        fmin,
+        fmax,
+        dropout_rate=0.5,
+        freeze_spectrogram_parameters=True,
+        freeze_logmel_parameters=True,
+        use_spec_augmentation=True,
+        time_drop_width=64,
+        time_stripes_num=2,
+        freq_drop_width=8,
+        freq_stripes_num=2,
+        spec_augmentation_method=None,
+        apply_mixup=False,
+        apply_spec_shuffle=False,
+        spec_shuffle_prob=0,
+        **params,
+    ):
+        super().__init__(
+            encoder,
+            in_features,
+            num_classes,
+            n_fft,
+            hop_length,
+            sample_rate,
+            n_mels,
+            fmin,
+            fmax,
+            dropout_rate,
+            freeze_spectrogram_parameters,
+            freeze_logmel_parameters,
+            use_spec_augmentation,
+            time_drop_width,
+            time_stripes_num,
+            freq_drop_width,
+            freq_stripes_num,
+            spec_augmentation_method,
+            apply_mixup,
+            apply_spec_shuffle,
+            spec_shuffle_prob,
+        )
+
+        self.encoder = encoder.features
+
+
+class SEDV4(SED):
+    """call/song prediction"""
+
+    def __init__(
+        self,
+        encoder,
+        in_features,
+        num_classes,
+        n_fft,
+        hop_length,
+        sample_rate,
+        n_mels,
+        fmin,
+        fmax,
+        dropout_rate=0.5,
+        freeze_spectrogram_parameters=True,
+        freeze_logmel_parameters=True,
+        use_spec_augmentation=True,
+        time_drop_width=64,
+        time_stripes_num=2,
+        freq_drop_width=8,
+        freq_stripes_num=2,
+        spec_augmentation_method=None,
+        apply_mixup=False,
+        apply_spec_shuffle=False,
+        spec_shuffle_prob=0,
+        **params,
+    ):
+        super().__init__(
+            encoder,
+            in_features,
+            num_classes,
+            n_fft,
+            hop_length,
+            sample_rate,
+            n_mels,
+            fmin,
+            fmax,
+            dropout_rate,
+            freeze_spectrogram_parameters,
+            freeze_logmel_parameters,
+            use_spec_augmentation,
+            time_drop_width,
+            time_stripes_num,
+            freq_drop_width,
+            freq_stripes_num,
+            spec_augmentation_method,
+            apply_mixup,
+            apply_spec_shuffle,
+            spec_shuffle_prob,
+        )
+
+        self.fc_type = nn.Linear(2, 2, bias=True)
+
+    def forward(self, input, additional_x, mixup_lambda=None, mixup_index=None):
+        # (batch_size, 1, time_steps, freq_bins)
+        x = self.spectrogram_extractor(input)
+        x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
+
+        frames_num = x.shape[2]
+
+        x = x.transpose(1, 3).contiguous()
+        x = self.bn0(x)
+        x = x.transpose(1, 3).contiguous()
+
+        if (
+            self.training
+            and self.apply_spec_shuffle
+            and (np.random.rand() < self.spec_shuffle_prob)
+        ):
+            # (batch_size, 1, time_steps, freq_bins)
+            idx = torch.randperm(x.shape[3])
+            x = x[:, :, :, idx]
+
+        if self.training and (self.spec_augmenter is not None):
+            x = self.spec_augmenter(x)
+
+        # Mixup on spectrogram
+        if self.training and self.apply_mixup and (mixup_lambda is not None):
+            x = do_mixup(x, mixup_lambda, mixup_index)
+
+        x = x.transpose(2, 3).contiguous()
+        # (batch_size, channels, freq, frames)
+        x = self.encoder(x)
+
+        # (batch_size, channels, frames)
+        x = torch.mean(x, dim=2)
+
+        # channel smoothing
+        # (batch_size, channels, frames)
+        x = gem(x, kernel_size=3)
+
+        # (batch_size, channels+2, frames)
+        y = self.fc2(additional_x)
+        x = torch.cat(
+            (x, y.unsqueeze(-1).repeat((1, 1, x.shape[-1]))),
+            dim=1,
+        )
+
+        x = F.dropout(x, p=self.dropout_rate, training=self.training)
+        x = x.transpose(1, 2).contiguous()
+
+        x = F.relu_(self.fc1(x))
+        x = x.transpose(1, 2).contiguous()
+
+        (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
+
+        type_logit = self.fc_type(norm_att * self.att_block.cla(x))
+
+        logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
+        segmentwise_logit = self.att_block.cla(x).transpose(1, 2).contiguous()
+        segmentwise_output = segmentwise_output.transpose(1, 2).contiguous()
+
+        interpolate_ratio = frames_num // segmentwise_output.size(1)
+
+        # Get framewise output
+        framewise_output = interpolate(segmentwise_output, interpolate_ratio)
+        framewise_output = pad_framewise_output(framewise_output, frames_num)
+
+        framewise_logit = interpolate(segmentwise_logit, interpolate_ratio)
+        framewise_logit = pad_framewise_output(framewise_logit, frames_num)
+
+        output_dict = {
+            "framewise_output": framewise_output,
+            "segmentwise_output": segmentwise_output,
+            "logit": logit,
+            "type_logit": type_logit,
+            "framewise_logit": framewise_logit,
+            "clipwise_output": clipwise_output,
+        }
+
+        return output_dict
