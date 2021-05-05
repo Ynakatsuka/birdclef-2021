@@ -7,15 +7,7 @@ import os
 import kvt.registry
 import torch
 import torch.nn as nn
-from kvt.models.layers import (
-    AdaptiveConcatPool2d,
-    BlurPool,
-    Flatten,
-    GeM,
-    NetVLAD,
-    SEBlock,
-    SoftPool,
-)
+from kvt.models.layers import AdaptiveConcatPool2d, Flatten, GeM, SEBlock
 from kvt.registry import BACKBONES, MODELS
 from kvt.utils import build_from_config
 from omegaconf import OmegaConf
@@ -37,7 +29,10 @@ def analyze_in_features(model):
     elif hasattr(model, "last_linear"):
         in_features = model.last_linear.in_features
     elif hasattr(model, "head"):
-        in_features = model.head.fc.in_features
+        if hasattr(model.head, "fc"):
+            in_features = model.head.fc.in_features
+        else:
+            in_features = model.head.in_features
     else:
         raise ValueError(f"Model has no last linear layer: {model}")
 
@@ -154,7 +149,7 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
         #######################################################################
         # sound event detection models
         #######################################################################
-        if config.name == "SED":
+        if "SED" in config.name:
             model = self.build_sound_event_detection_model(config)
 
         #######################################################################
@@ -216,17 +211,14 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
     def build_sound_event_detection_model(self, config):
         # build model
         backbone_config = {"name": config.params.backbone.name}
-
-        in_channels = None
         params = config.params.backbone.params
-        if hasattr(config.params.backbone.params, "in_channels"):
-            in_channels = config.params.backbone.params.in_channels
-            params = {k: v for k, v in params.items() if k != "in_channels"}
 
+        # if in_chans is valid key
         backbone = build_from_config(backbone_config, BACKBONES, params)
 
-        if in_channels is not None:
-            backbone = update_input_layer(backbone, in_channels)
+        # params = {k: v for k, v in params.items() if k != "in_channels"}
+        # backbone = build_from_config(backbone_config, BACKBONES, params)
+        # backbone = update_input_layer(backbone, in_channels)
 
         in_features = analyze_in_features(backbone)
         backbone = replace_last_linear(
