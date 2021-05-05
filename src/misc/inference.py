@@ -96,6 +96,7 @@ def build_test_dataloaders(config):
             shuffle=False,
             batch_size=batch_size,
             drop_last=False,
+            num_workers=4,
         )
 
         result = [{"dataloader": dataloader, "split": "test", "mode": "test"}]
