@@ -26,6 +26,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         idx_fold=0,
         secondary_target_column=None,
         secondary_coef=0.1,
+        addtional_numerical_columns=None,
         **params,
     ):
         self.image_column = image_column
@@ -40,6 +41,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         self.idx_fold = idx_fold
         self.secondary_target_column = secondary_target_column
         self.secondary_coef = secondary_coef
+        self.addtional_numerical_columns = addtional_numerical_columns
 
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
@@ -55,6 +57,11 @@ class WaveformDataset(torch.utils.data.Dataset):
             self.secondary_targets = (
                 df[self.secondary_target_column].apply(eval).tolist()
             )  # lisf of list
+
+        if self.addtional_numerical_columns is not None:
+            self.addtional_numerical_features = (
+                df[self.addtional_numerical_columns].values.astype("float32") / 200
+            )
 
         # image dir
         if self.split == "test":
@@ -119,4 +126,9 @@ class WaveformDataset(torch.utils.data.Dataset):
 
         y = self._preprocess_target(ebird_code, secondary_ebird_code)
 
-        return {"x": x, "y": y}
+        input_ = {"x": x, "y": y}
+
+        if self.addtional_numerical_columns is not None:
+            input_["additional_x"] = self.addtional_numerical_features[idx]
+
+        return input_
