@@ -111,7 +111,9 @@ class BinaryReducedFocalLoss(nn.Module):
             + ((-max_val).exp() + (-input - max_val).exp()).log()
         )
         invprobs = F.logsigmoid(-input * (target * 2 - 1))
-        invprobs = torch.where(input.gt(0), invprobs, 0)
+        invprobs = torch.where(
+            input.gt(0), invprobs, torch.tensor(0.0).float().to(invprobs.device)
+        )
 
         loss = (invprobs / self.threshold * self.gamma).exp() * loss
         if weight is not None:

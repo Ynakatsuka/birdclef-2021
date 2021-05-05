@@ -12,5 +12,5 @@ from .noisy_loss import (
     SymmetricBinaryFocalLoss,
     SymmetricCrossEntropy,
 )
-from .ohem_loss import OHEMLoss
+from .ohem_loss import OHEMLoss, OHEMLossWithLogits
 from .vat import VATLoss

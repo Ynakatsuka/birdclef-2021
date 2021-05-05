@@ -1,34 +1,34 @@
 import math
 
 import torch
-from torch import nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class DenseCrossEntropy(nn.Module):
-    def forward(self, x, target, reduction='mean'):
+    def forward(self, x, target, reduction="mean"):
         x = x.float()
         target = target.float()
         logprobs = torch.nn.functional.log_softmax(x, dim=-1)
 
         loss = -logprobs * target
         loss = loss.sum(-1)
-        if reduction == 'mean':
+        if reduction == "mean":
             return loss.mean()
-        elif reduction == 'sum':
+        elif reduction == "sum":
             return loss.sum()
-        elif reduction == 'none':
+        elif reduction == "none":
             return loss
 
 
 class ArcFaceLoss(nn.modules.Module):
-    def __init__(self, num_classes, s=30.0, m=0.5, reduction='mean'):
+    def __init__(self, num_classes, s=30.0, m=0.5, reduction="mean"):
         super().__init__()
         self.reduction = reduction
         self.s = s
-        self.cos_m = math.cos(m)             #  0.87758
-        self.sin_m = math.sin(m)             #  0.47943
-        self.th = math.cos(math.pi - m)      # -0.87758
+        self.cos_m = math.cos(m)  #  0.87758
+        self.sin_m = math.sin(m)  #  0.47943
+        self.th = math.cos(math.pi - m)  # -0.87758
         self.mm = math.sin(math.pi - m) * m  #  0.23971
         self.num_classes = num_classes
 
