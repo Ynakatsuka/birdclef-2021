@@ -147,6 +147,8 @@ class SED(nn.Module):
         apply_mixup=False,
         apply_spec_shuffle=False,
         spec_shuffle_prob=0,
+        use_gru_layer=False,
+        apply_tta=False,
         **params,
     ):
         super().__init__()
@@ -154,6 +156,8 @@ class SED(nn.Module):
         self.apply_mixup = apply_mixup
         self.apply_spec_shuffle = apply_spec_shuffle
         self.spec_shuffle_prob = spec_shuffle_prob
+        self.use_gru_layer = use_gru_layer
+        self.apply_tta = apply_tta
 
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
@@ -197,6 +201,9 @@ class SED(nn.Module):
                 method=spec_augmentation_method,
             )
 
+        if self.use_gru_layer:
+            self.gru = nn.GRU(in_features, in_features, batch_first=True)
+
         self.bn0 = nn.BatchNorm2d(n_mels)
 
         # layers = list(encoder.children())[:-2]
@@ -232,7 +239,7 @@ class SED(nn.Module):
             idx = torch.randperm(x.shape[3])
             x = x[:, :, :, idx]
 
-        if self.training and (self.spec_augmenter is not None):
+        if (self.training or self.apply_tta) and (self.spec_augmenter is not None):
             x = self.spec_augmenter(x)
 
         # Mixup on spectrogram
@@ -245,6 +252,12 @@ class SED(nn.Module):
 
         # (batch_size, channels, frames)
         x = torch.mean(x, dim=2)
+
+        # GRU
+        if self.use_gru_layer:
+            # (batch_size, channels, frames) -> (batch_size, channels, frames)
+            x, _ = self.gru(x.transpose(1, 2).contiguous())
+            x = x.transpose(1, 2).contiguous()
 
         # channel smoothing
         # (batch_size, channels, frames)
@@ -295,18 +308,6 @@ class SEDV2(SED):
         n_mels,
         fmin,
         fmax,
-        dropout_rate=0.5,
-        freeze_spectrogram_parameters=True,
-        freeze_logmel_parameters=True,
-        use_spec_augmentation=True,
-        time_drop_width=64,
-        time_stripes_num=2,
-        freq_drop_width=8,
-        freq_stripes_num=2,
-        spec_augmentation_method=None,
-        apply_mixup=False,
-        apply_spec_shuffle=False,
-        spec_shuffle_prob=0,
         **params,
     ):
         super().__init__(
@@ -319,23 +320,12 @@ class SEDV2(SED):
             n_mels,
             fmin,
             fmax,
-            dropout_rate,
-            freeze_spectrogram_parameters,
-            freeze_logmel_parameters,
-            use_spec_augmentation,
-            time_drop_width,
-            time_stripes_num,
-            freq_drop_width,
-            freq_stripes_num,
-            spec_augmentation_method,
-            apply_mixup,
-            apply_spec_shuffle,
-            spec_shuffle_prob,
+            **params,
         )
 
         self.fc2 = nn.Linear(2, 2, bias=True)
 
-    def forward(self, input, additional_x, mixup_lambda=None, mixup_index=None):
+    def forward(self, input, x_additional, mixup_lambda=None, mixup_index=None):
         # (batch_size, 1, time_steps, freq_bins)
         x = self.spectrogram_extractor(input)
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
@@ -355,7 +345,7 @@ class SEDV2(SED):
             idx = torch.randperm(x.shape[3])
             x = x[:, :, :, idx]
 
-        if self.training and (self.spec_augmenter is not None):
+        if (self.training or self.apply_tta) and (self.spec_augmenter is not None):
             x = self.spec_augmenter(x)
 
         # Mixup on spectrogram
@@ -374,7 +364,7 @@ class SEDV2(SED):
         x = gem(x, kernel_size=3)
 
         # (batch_size, channels+2, frames)
-        y = self.fc2(additional_x)
+        y = self.fc2(x_additional)
         x = torch.cat(
             (x, y.unsqueeze(-1).repeat((1, 1, x.shape[-1]))),
             dim=1,
@@ -425,18 +415,6 @@ class SEDV3(SED):
         n_mels,
         fmin,
         fmax,
-        dropout_rate=0.5,
-        freeze_spectrogram_parameters=True,
-        freeze_logmel_parameters=True,
-        use_spec_augmentation=True,
-        time_drop_width=64,
-        time_stripes_num=2,
-        freq_drop_width=8,
-        freq_stripes_num=2,
-        spec_augmentation_method=None,
-        apply_mixup=False,
-        apply_spec_shuffle=False,
-        spec_shuffle_prob=0,
         **params,
     ):
         super().__init__(
@@ -449,18 +427,7 @@ class SEDV3(SED):
             n_mels,
             fmin,
             fmax,
-            dropout_rate,
-            freeze_spectrogram_parameters,
-            freeze_logmel_parameters,
-            use_spec_augmentation,
-            time_drop_width,
-            time_stripes_num,
-            freq_drop_width,
-            freq_stripes_num,
-            spec_augmentation_method,
-            apply_mixup,
-            apply_spec_shuffle,
-            spec_shuffle_prob,
+            **params,
         )
 
         self.encoder = encoder.features
@@ -480,18 +447,6 @@ class SEDV4(SED):
         n_mels,
         fmin,
         fmax,
-        dropout_rate=0.5,
-        freeze_spectrogram_parameters=True,
-        freeze_logmel_parameters=True,
-        use_spec_augmentation=True,
-        time_drop_width=64,
-        time_stripes_num=2,
-        freq_drop_width=8,
-        freq_stripes_num=2,
-        spec_augmentation_method=None,
-        apply_mixup=False,
-        apply_spec_shuffle=False,
-        spec_shuffle_prob=0,
         **params,
     ):
         super().__init__(
@@ -504,23 +459,12 @@ class SEDV4(SED):
             n_mels,
             fmin,
             fmax,
-            dropout_rate,
-            freeze_spectrogram_parameters,
-            freeze_logmel_parameters,
-            use_spec_augmentation,
-            time_drop_width,
-            time_stripes_num,
-            freq_drop_width,
-            freq_stripes_num,
-            spec_augmentation_method,
-            apply_mixup,
-            apply_spec_shuffle,
-            spec_shuffle_prob,
+            **params,
         )
 
-        self.fc_type = nn.Linear(2, 2, bias=True)
+        self.fc_type = nn.Linear(num_classes, 2, bias=True)
 
-    def forward(self, input, additional_x, mixup_lambda=None, mixup_index=None):
+    def forward(self, input, mixup_lambda=None, mixup_index=None):
         # (batch_size, 1, time_steps, freq_bins)
         x = self.spectrogram_extractor(input)
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
@@ -540,7 +484,7 @@ class SEDV4(SED):
             idx = torch.randperm(x.shape[3])
             x = x[:, :, :, idx]
 
-        if self.training and (self.spec_augmenter is not None):
+        if (self.training or self.apply_tta) and (self.spec_augmenter is not None):
             x = self.spec_augmenter(x)
 
         # Mixup on spectrogram
@@ -558,13 +502,6 @@ class SEDV4(SED):
         # (batch_size, channels, frames)
         x = gem(x, kernel_size=3)
 
-        # (batch_size, channels+2, frames)
-        y = self.fc2(additional_x)
-        x = torch.cat(
-            (x, y.unsqueeze(-1).repeat((1, 1, x.shape[-1]))),
-            dim=1,
-        )
-
         x = F.dropout(x, p=self.dropout_rate, training=self.training)
         x = x.transpose(1, 2).contiguous()
 
@@ -573,9 +510,9 @@ class SEDV4(SED):
 
         (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
 
-        type_logit = self.fc_type(norm_att * self.att_block.cla(x))
-
         logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
+        type_logit = self.fc_type(clipwise_output)
+
         segmentwise_logit = self.att_block.cla(x).transpose(1, 2).contiguous()
         segmentwise_output = segmentwise_output.transpose(1, 2).contiguous()
 
