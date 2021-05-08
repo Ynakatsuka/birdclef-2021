@@ -43,6 +43,8 @@ class LightningModuleBase(pl.LightningModule):
 
     def training_step(self, batch, batch_nb):
         x, y = batch["x"], batch["y"]
+        aux_x = {k: v for k, v in batch.items() if (k != "x") and (k[0] == "x")}
+        aux_y = {k: v for k, v in batch.items() if (k != "y") and (k[0] == "y")}
 
         if self.transform is not None:
             x = self.transform(x)
@@ -57,13 +59,13 @@ class LightningModuleBase(pl.LightningModule):
             and (np.random.rand() < self.storong_transform_p)
         ):
             x, y_a, y_b, lam, idx = self.strong_transform(x, y)
-            y_hat = self.forward(x)
-            loss = lam * self.hooks.loss_fn(y_hat, y_a) + (
+            y_hat = self.forward(x, **aux_x)
+            loss = lam * self.hooks.loss_fn(y_hat, y_a, **aux_y) + (
                 1 - lam
-            ) * self.hooks.loss_fn(y_hat, y_b)
+            ) * self.hooks.loss_fn(y_hat, y_b, **aux_y)
         else:
-            y_hat = self.forward(x)
-            loss = self.hooks.loss_fn(y_hat, y)
+            y_hat = self.forward(x, **aux_x)
+            loss = self.hooks.loss_fn(y_hat, y, **aux_y)
 
         return {"loss": loss}
 
@@ -79,9 +81,12 @@ class LightningModuleBase(pl.LightningModule):
 
     def validation_step(self, batch, batch_nb):
         x, y = batch["x"], batch["y"]
-        y_hat = self.forward(x)
+        aux_x = {k: v for k, v in batch.items() if (k != "x") and (k[0] == "x")}
+        aux_y = {k: v for k, v in batch.items() if (k != "y") and (k[0] == "y")}
 
-        val_loss = self.hooks.loss_fn(y_hat, y)
+        y_hat = self.forward(x, **aux_x)
+
+        val_loss = self.hooks.loss_fn(y_hat, y, **aux_y)
         outputs = {"val_loss": val_loss}
 
         if self.hooks.metric_fn is not None:

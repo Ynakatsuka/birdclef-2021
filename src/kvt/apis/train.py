@@ -90,7 +90,7 @@ def run(config):
         OmegaConf.set_struct(config, True)
         with open_dict(config):
             config.trainer.trainer.max_epochs = None
-            config.trainer.trainer.max_steps = 100
+            config.trainer.trainer.max_steps = 10
 
     # logging for wandb or mlflow
     if hasattr(logger, "log_hyperparams"):
@@ -117,7 +117,7 @@ def run(config):
     # build scheduler
     scheduler = build_scheduler(config, optimizer=optimizer)
 
-    # build datasets
+    # build dataloaders
     dataloaders = build_dataloaders(config)
 
     # build strong transform
@@ -171,20 +171,25 @@ def run(config):
         logger.log_hyperparams(params={"best_model_path": best_model_path})
 
     # load best checkpoint
-    print(f"Loading best model: {best_model_path}")
-    state_dict = torch.load(best_model_path)["state_dict"]
+    if os.path.exists(best_model_path):
+        print(f"Loading best model: {best_model_path}")
+        state_dict = torch.load(best_model_path)["state_dict"]
 
-    # if using dp, it is necessary to fix state dict keys
-    if (
-        hasattr(config.trainer.trainer, "sync_batchnorm")
-        and config.trainer.trainer.sync_batchnorm
-    ):
-        state_dict = kvt.utils.fix_dp_model_state_dict(state_dict)
+        # if using dp, it is necessary to fix state dict keys
+        if (
+            hasattr(config.trainer.trainer, "sync_batchnorm")
+            and config.trainer.trainer.sync_batchnorm
+        ):
+            state_dict = kvt.utils.fix_dp_model_state_dict(state_dict)
 
-    lightning_module.model.load_state_dict(state_dict)
+        lightning_module.model.load_state_dict(state_dict)
+    else:
+        print(f"best model {best_model_path} does not exist")
 
     # evaluate
     metric_dict = evaluate(lightning_module, hooks, config, mode=["validation"])
+    print("Result:")
+    print(metric_dict)
 
     if hasattr(logger, "log_metrics"):
         logger.log_metrics(metric_dict)
