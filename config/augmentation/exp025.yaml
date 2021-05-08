@@ -8,10 +8,18 @@
 tta: 10
 
 train:
+  - name: OneOf
+    member:
+      - name: AddGaussianNoise
+        params:
+      - name: PinkNoise
+        params:
+    params:
+        p: 0.5
   - name: PolarityInversion
     params:
       p: 0.1
-  - name: PinkNoise
+  - name: RandomVolume
     params:
       p: 0.3
   - name: Normalize

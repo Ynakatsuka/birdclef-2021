@@ -5,7 +5,7 @@
 # width: 512
 
 # tta: 1 - 4
-# tta: 1
+tta: 10
 
 train:
   - name: StretchAudio
