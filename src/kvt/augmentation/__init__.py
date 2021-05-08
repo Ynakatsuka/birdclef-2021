@@ -1,5 +1,6 @@
 from .audio import (
     CosineVolume,
+    OneOf,
     PinkNoise,
     RandomVolume,
     SpeedTuning,

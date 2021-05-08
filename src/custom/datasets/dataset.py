@@ -27,6 +27,8 @@ class WaveformDataset(torch.utils.data.Dataset):
         secondary_target_column=None,
         secondary_coef=0.1,
         addtional_numerical_columns=None,
+        addtional_target_columns=None,
+        use_head_or_tail=False,
         **params,
     ):
         self.image_column = image_column
@@ -42,6 +44,8 @@ class WaveformDataset(torch.utils.data.Dataset):
         self.secondary_target_column = secondary_target_column
         self.secondary_coef = secondary_coef
         self.addtional_numerical_columns = addtional_numerical_columns
+        self.addtional_target_columns = addtional_target_columns
+        self.use_head_or_tail = use_head_or_tail
 
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
@@ -62,6 +66,26 @@ class WaveformDataset(torch.utils.data.Dataset):
             self.addtional_numerical_features = (
                 df[self.addtional_numerical_columns].values.astype("float32") / 200
             )
+
+        if self.addtional_target_columns is not None:
+            if (len(addtional_target_columns) == 1) and (
+                "type" in addtional_target_columns
+            ):
+                df["__target_song__"] = (
+                    df["type"]
+                    .apply(eval)
+                    .apply(lambda x: int(bool(sum([1 for w in x if "song" in w]))))
+                )
+                df["__target_call__"] = (
+                    df["type"]
+                    .apply(eval)
+                    .apply(lambda x: int(bool(sum([1 for w in x if "call" in w]))))
+                )
+                self.addtional_targets = df[
+                    ["__target_song__", "__target_call__"]
+                ].values
+            else:
+                raise ValueError
 
         # image dir
         if self.split == "test":
@@ -84,10 +108,13 @@ class WaveformDataset(torch.utils.data.Dataset):
             new_x[start : start + len_x] = x
             x = new_x.astype(np.float32)
         elif len_x > effective_length:
+            start = 0
             if self.split == "train":
-                start = np.random.randint(len_x - effective_length)
-            else:
-                start = 0
+                if self.use_head_or_tail:
+                    if np.random.rand() < 0.5:
+                        start = len(x) - effective_length
+                else:
+                    start = np.random.randint(len_x - effective_length)
             x = x[start : start + effective_length].astype(np.float32)
         else:
             x = x.astype(np.float32)
@@ -129,6 +156,9 @@ class WaveformDataset(torch.utils.data.Dataset):
         input_ = {"x": x, "y": y}
 
         if self.addtional_numerical_columns is not None:
-            input_["additional_x"] = self.addtional_numerical_features[idx]
+            input_["x_additional"] = self.addtional_numerical_features[idx]
+
+        if self.addtional_target_columns is not None:
+            input_["y_type"] = self.addtional_targets[idx]
 
         return input_

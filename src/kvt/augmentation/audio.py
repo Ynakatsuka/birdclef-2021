@@ -148,3 +148,17 @@ class StretchAudio(BaseWaveformTransform):
             data = np.pad(data, (0, max(0, input_length - len(data))), "constant")
 
         return data.astype("float32")
+
+
+class OneOf:
+    def __init__(self, transforms: list, p: float):
+        self.transforms = transforms
+        self.p = p
+
+    def __call__(self, y: np.ndarray, sr):
+        if np.random.rand() < self.p:
+            n_trns = len(self.transforms)
+            trns_idx = np.random.choice(n_trns)
+            trns = self.transforms[trns_idx]
+            y = trns(y, sr)
+        return y

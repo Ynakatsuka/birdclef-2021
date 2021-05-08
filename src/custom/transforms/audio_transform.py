@@ -33,7 +33,7 @@ def get_transform(cfg):
 
         if trans.name in {"Compose", "OneOf"}:
             augs_tmp = [get_object(aug) for aug in trans.member]
-            return getattr(audi, trans.name)(augs_tmp, **params)
+            return getattr(kvt.augmentation, trans.name)(augs_tmp, **params)
 
         if hasattr(audi, trans.name):
             return getattr(audi, trans.name)(**params)
