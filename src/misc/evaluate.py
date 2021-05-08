@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 import soundfile as sf
 import torch
 from omegaconf import DictConfig, OmegaConf, open_dict
+from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.utils.data import DataLoader, Dataset
 
 sys.path.append("src/")
@@ -16,7 +17,7 @@ import custom  # import all custom modules for registering objects.
 import kvt
 import kvt.augmentation
 import kvt.utils
-from kvt.builder import build_hooks, build_lightning_module, build_model
+from kvt.builder import build_hooks, build_lightning_module, build_logger, build_model
 
 # from kvt.evaluate import evaluate
 from kvt.initialization import initialize
@@ -114,6 +115,15 @@ def build_test_dataloaders(config):
         yield result, row_ids
 
 
+def preprocess_target(x, target_unique_values):
+    labels = np.zeros(len(target_unique_values), dtype="float32")
+    for y in x:
+        if y == "nocall":
+            continue
+        labels[target_unique_values.index(y)] = 1.0
+    return pd.Series(labels)
+
+
 def run(config):
     pl.seed_everything(config.seed)
 
@@ -121,6 +131,17 @@ def run(config):
     OmegaConf.set_struct(config, True)
     with open_dict(config):
         config.trainer.model.params.backbone.params.pretrained = False
+
+    # build logger
+    logger = build_logger(config)
+
+    # logging for wandb or mlflow
+    if hasattr(logger, "log_hyperparams"):
+        for k, v in config.trainer.items():
+            if not k in ("metrics", "inference"):
+                logger.log_hyperparams(params=v)
+        logger.log_hyperparams(params=config.dataset)
+        logger.log_hyperparams(params=config.augmentation)
 
     # build model
     model = build_model(config)
@@ -157,6 +178,7 @@ def run(config):
 
     # inference
     columns = [f"pred_{i:03}" for i in range(config.trainer.model.params.num_classes)]
+    outputs = []
     for i, (dataloaders, row_ids) in enumerate(build_test_dataloaders(config)):
         lightning_module.dataloaders = dataloaders
         _, output = evaluate(
@@ -165,17 +187,49 @@ def run(config):
             config,
             mode="test",
             return_predictions=True,
+            tta=config.augmentation.tta,
         )
 
         output = pd.DataFrame(output[0], columns=columns)
         output["row_id"] = row_ids
+        outputs.append(output)
+    outputs = pd.concat(outputs).reset_index(drop=True)
 
-        # save predictions dataframe
-        path = os.path.join(
-            config.trainer.inference.dirpath,
-            f"{i:03d}_" + config.trainer.inference.filename,
+    # save predictions dataframe
+    path = os.path.join(
+        config.trainer.inference.dirpath,
+        config.trainer.inference.filename,
+    )
+    outputs.to_pickle(path)
+
+    # merge labels
+    labels = pd.read_csv(f"{config.input_dir}/train_soundscape_labels.csv")
+    labels["birds"] = labels["birds"].apply(lambda x: x.split())
+    df = labels.merge(outputs)
+
+    # target
+    target = (
+        df["birds"]
+        .apply(lambda x: preprocess_target(x, config.competition.target_unique_values))
+        .values
+    )
+
+    # predictions
+    pred = df[columns].values > 0.5
+
+    # evaluate
+    result = {}
+    for func in [f1_score, precision_score, recall_score]:
+        result[f"train_soundscapes_{func.__name__}_50"] = func(
+            target, pred, average="samples", zero_division=1
         )
-        output.to_pickle(path)
+
+    print("Result:")
+    print(result)
+
+    # log
+    if logger is not None:
+        logger.log_metrics(result)
 
 
 @hydra.main(config_path="../../config", config_name="default")
