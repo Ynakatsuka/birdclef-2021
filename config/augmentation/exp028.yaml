@@ -10,9 +10,8 @@ tta: 10
 train:
   - name: OneOf
     member:
-      - name: AddGaussianSNR
+      - name: AddGaussianNoise
         params:
-          max_SNR: 0.5
       - name: PinkNoise
         params:
     params:
@@ -23,6 +22,12 @@ train:
   - name: RandomVolume
     params:
       p: 0.3
+  - name: AddBackgroundNoise
+    params:
+      p: 0.2
+      sounds_path: '../data/external/train-soundscapes-backgrounds/'
+      min_snr_in_db: 0
+      max_snr_in_db: 2
   - name: Normalize
     params:
         # p: 1.0

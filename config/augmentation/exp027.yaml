@@ -15,7 +15,7 @@ train:
       - name: PinkNoise
         params:
     params:
-        p: 0.5
+        p: 0.3
   - name: PolarityInversion
     params:
       p: 0.1
@@ -24,7 +24,7 @@ train:
       p: 0.3
   - name: AddBackgroundNoise
     params:
-      p: 0.5
+      p: 0.2
       sounds_path: '../data/external/bird-backgrounds/'
       min_snr_in_db: 0
       max_snr_in_db: 2

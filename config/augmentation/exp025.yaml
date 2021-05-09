@@ -15,7 +15,7 @@ train:
       - name: PinkNoise
         params:
     params:
-        p: 0.5
+        p: 0.3
   - name: PolarityInversion
     params:
       p: 0.1

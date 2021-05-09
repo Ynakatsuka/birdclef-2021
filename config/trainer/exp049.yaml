@@ -2,7 +2,7 @@
 skip_training: False
 
 train:
-  batch_size: 64
+  batch_size: 32
   backbone_lr_ratio:
   encoder_lr_ratio:
 

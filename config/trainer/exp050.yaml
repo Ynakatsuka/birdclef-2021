@@ -2,7 +2,7 @@
 skip_training: False
 
 train:
-  batch_size: 32
+  batch_size: 8
   backbone_lr_ratio:
   encoder_lr_ratio:
 
@@ -28,7 +28,7 @@ trainer:
   benchmark: True
   deterministic: True
   num_sanity_val_steps: 0
-  # stochastic_weight_avg: True
+  stochastic_weight_avg: True
 
 inference:
   input_dir: '${input_dir}/test_soundscapes/'
@@ -70,6 +70,7 @@ model:
     freq_drop_width: 8
     freq_stripes_num: 2
     spec_augmentation_method: 'cm'
+    use_gru_layer: True
 
 loss:
   name: 'BCEFocal2WayLossHook'
@@ -89,6 +90,14 @@ metrics:
       threshold: 0.7
   mAP:
     name: 'mAP'
+  rc_50:
+    name: 'rowwise_micro_recall'
+    params:
+      threshold: 0.5
+  pr_50:
+    name: 'rowwise_micro_precision'
+    params:
+      threshold: 0.5
 
 optimizer:
   name: 'RAdam'
