@@ -171,19 +171,6 @@ def register_torch_modules():
     for lightning_module in lightning_modules:
         LIGHTNING_MODULES.register(lightning_module)
 
-    # register metrics (functions)
-    for name, cls in pl.metrics.functional.__dict__.items():
-        if not callable(cls):
-            continue
-        cls.__name__ = name
-        METRICS.register(cls)
-
-    for name, cls in pl.metrics.functional.classification.__dict__.items():
-        if not callable(cls):
-            continue
-        cls.__name__ = name
-        METRICS.register(cls)
-
 
 def register_default_hooks():
     HOOKS.register(kvt.hooks.DefaultModelBuilderHook)
