@@ -44,7 +44,10 @@ def main(config: DictConfig) -> None:
 
     if config.run in ("train", "inference", "swa"):
         # initialize torch
-        pl.seed_everything(config.seed)
+        try:
+            pl.seed_everything(config.seed, workers=True)
+        except:
+            pl.seed_everything(config.seed)
 
         # run main function
         eval(config.run)(config)
