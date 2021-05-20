@@ -1,0 +1,27 @@
+# @package _group_
+dataset:
+  name: 'WaveformDatasetWithMissingLabels'
+  params:
+    csv_filename: ${fold.csv_filename}
+    image_column: 'filename'
+    target_column: ${competition.target_column}
+    target_unique_values: ${competition.target_unique_values}
+    input_dir: ${input_dir}
+    period: 20
+    sample_rate: 32000
+    num_fold: 5
+    idx_fold: 0
+    use_pred_missing_label: True
+    use_pred_secondary_label: True
+    apply_adaptive_sampleing: False
+  splits:
+    - mode: 'train'
+      split: 'train'
+    - mode: 'validation'
+      split: 'validation'
+    - mode: 'test'
+      split: 'test'
+
+transform:
+  name: 'base_audio_transform'
+  num_preprocessor: 24
