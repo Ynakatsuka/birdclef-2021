@@ -4,7 +4,6 @@ FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu18.04 AS nvidia
 FROM gcr.io/kaggle-images/python:${BASE_TAG}
 
 ADD clean-layer.sh  /tmp/clean-layer.sh
-ADD requirements.txt  /tmp/requirements.txt
 
 # Cuda support
 COPY --from=nvidia /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/
@@ -20,10 +19,13 @@ RUN conda remove --force -y pytorch torchvision torchaudio cpuonly && \
     conda install pytorch==1.8.1 torchvision torchaudio cudatoolkit=11.1 -c pytorch -c conda-forge && \
     /tmp/clean-layer.sh
 
+# requirements
+ADD requirements.txt  /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
 # timm
-RUN pip install git+https://github.com/rwightman/pytorch-image-models/ -b v0.1-rs-weights
+# RUN pip install git+https://github.com/rwightman/pytorch-image-models/ -b v0.1-rs-weights
+RUN pip install git+https://github.com/rwightman/pytorch-image-models/ -b v0.1-effv2-weights
 
 # nodejs, jupyterlab extention
 RUN npm install n -g && \

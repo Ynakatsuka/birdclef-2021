@@ -10,3 +10,4 @@ resnest>=0.0.5
 torchlibrosa>=0.0.9
 audiomentations>=0.16.0
 colorednoise>=1.1.1
+pandarallel>=1.5.2
