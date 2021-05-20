@@ -1,3 +1,4 @@
+import math
 import os
 import random
 
@@ -25,7 +26,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         num_fold=5,
         idx_fold=0,
         secondary_target_column=None,
-        secondary_coef=0.1,
+        secondary_coef=1,
         addtional_numerical_columns=None,
         addtional_target_columns=None,
         use_head_or_tail=False,
@@ -120,7 +121,7 @@ class WaveformDataset(torch.utils.data.Dataset):
             x = x.astype(np.float32)
 
         x = np.nan_to_num(x)
-        return x
+        return x, start
 
     def _preprocess_target(self, y, secondary_y=None):
         labels = np.zeros(len(self.target_unique_values), dtype="float32")
@@ -141,7 +142,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         x, sr = sf.read(
             os.path.join(self.input_dir, self.images_dir, ebird_code, wav_name)
         )
-        x = self._preprocess_input(x, sr)
+        x, start = self._preprocess_input(x, sr)
 
         if self.transform is not None:
             x = self.transform(x, self.sample_rate)
@@ -150,6 +151,141 @@ class WaveformDataset(torch.utils.data.Dataset):
         secondary_ebird_code = None
         if self.secondary_target_column is not None:
             secondary_ebird_code = self.secondary_targets[idx]  # list
+
+        y = self._preprocess_target(ebird_code, secondary_ebird_code)
+
+        input_ = {"x": x, "y": y}
+
+        if self.addtional_numerical_columns is not None:
+            input_["x_additional"] = self.addtional_numerical_features[idx]
+
+        if self.addtional_target_columns is not None:
+            input_["y_type"] = self.addtional_targets[idx]
+
+        return input_
+
+
+@kvt.DATASETS.register
+class WaveformDatasetWithMissingLabels(WaveformDataset):
+    def __init__(
+        self,
+        csv_filename,
+        image_column,
+        target_column,
+        target_unique_values,
+        input_dir,
+        split="train",
+        transform=None,
+        sample_rate=32000,
+        period=20,
+        num_fold=5,
+        idx_fold=0,
+        secondary_target_column=None,
+        secondary_coef=0.5,
+        addtional_numerical_columns=None,
+        addtional_target_columns=None,
+        use_head_or_tail=False,
+        use_pred_missing_label=True,
+        use_pred_secondary_label=False,
+        apply_adaptive_sampleing=False,
+        **params,
+    ):
+        super().__init__(
+            csv_filename=csv_filename,
+            image_column=image_column,
+            target_column=target_column,
+            target_unique_values=target_unique_values,
+            input_dir=input_dir,
+            split=split,
+            transform=transform,
+            sample_rate=sample_rate,
+            period=period,
+            num_fold=num_fold,
+            idx_fold=idx_fold,
+            secondary_target_column=secondary_target_column,
+            secondary_coef=secondary_coef,
+            addtional_numerical_columns=addtional_numerical_columns,
+            addtional_target_columns=addtional_target_columns,
+            use_head_or_tail=use_head_or_tail,
+            **params,
+        )
+        self.use_pred_missing_label = use_pred_missing_label
+        self.use_pred_secondary_label = use_pred_secondary_label
+        self.apply_adaptive_sampleing = apply_adaptive_sampleing
+
+    def _preprocess_input(self, x, sr, oof_preds, ebird_code):
+        len_x = len(x)
+        effective_length = sr * self.period
+        start = 0
+        if len_x < effective_length:
+            new_x = np.zeros(effective_length, dtype=x.dtype)
+            if self.split == "train":
+                start = np.random.randint(effective_length - len_x)
+            new_x[start : start + len_x] = x
+            x = new_x.astype(np.float32)
+        elif len_x > effective_length:
+            if self.split == "train":
+                if self.use_head_or_tail:
+                    if np.random.rand() < 0.5:
+                        start = len(x) - effective_length
+                else:
+                    if self.apply_adaptive_sampleing:
+                        preds = oof_preds.raw_pred.apply(
+                            lambda x: x[self.target_unique_values.index(ebird_code)]
+                        ).rolling(self.period).max().dropna().values
+                        p = preds / preds.sum()
+                        if len(p):
+                            start = min(sr * np.random.choice(range(len(p)), 1, p=p)[0], len_x - effective_length)
+                        else:
+                            start = np.random.randint(len_x - effective_length)
+                    else:
+                        start = np.random.randint(len_x - effective_length)
+            x = x[start : start + effective_length].astype(np.float32)
+        else:
+            x = x.astype(np.float32)
+
+        x = np.nan_to_num(x)
+        return x, start
+
+    def __getitem__(self, idx):
+        wav_name = self.image_filenames[idx]
+        ebird_code = self.targets[idx]
+
+        x, sr = sf.read(
+            os.path.join(self.input_dir, self.images_dir, ebird_code, wav_name)
+        )
+        oof_preds = pd.read_pickle(
+            os.path.join(self.input_dir, "pred_labels", wav_name + ".pkl")
+        )[:math.ceil(len(x)/sr)]
+
+        x, start = self._preprocess_input(x, sr, oof_preds, ebird_code)
+
+        if self.transform is not None:
+            x = self.transform(x, self.sample_rate)
+        x = np.nan_to_num(x)
+
+        secondary_ebird_code = set()
+        if self.use_pred_missing_label:
+            secondary_ebird_code |= set(
+                oof_preds.loc[
+                    oof_preds.second.between(start // sr, start // sr + self.period),
+                    "pred_missing_labels",
+                ]
+                .explode()
+                .dropna()
+                .values
+            )
+        if self.use_pred_secondary_label:
+            secondary_ebird_code |= set(
+                oof_preds.loc[
+                    oof_preds.second.between(start // sr, start // sr + self.period),
+                    "pred_secondary_labels",
+                ]
+                .explode()
+                .dropna()
+                .values
+            )
+        secondary_ebird_code -= set(ebird_code)
 
         y = self._preprocess_target(ebird_code, secondary_ebird_code)
 

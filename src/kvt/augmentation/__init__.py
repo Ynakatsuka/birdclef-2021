@@ -1,5 +1,6 @@
 from .audio import (
     CosineVolume,
+    LowFrequencyMask,
     OneOf,
     PinkNoise,
     RandomVolume,

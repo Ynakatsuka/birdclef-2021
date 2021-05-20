@@ -6,6 +6,7 @@ import cv2
 import librosa
 import numpy as np
 from audiomentations.core.transforms_interface import BaseWaveformTransform
+from scipy.signal import butter, lfilter
 
 
 class PinkNoise(BaseWaveformTransform):
@@ -148,6 +149,43 @@ class StretchAudio(BaseWaveformTransform):
             data = np.pad(data, (0, max(0, input_length - len(data))), "constant")
 
         return data.astype("float32")
+
+
+def butter_lowpass(cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype="low", analog=False)
+    return b, a
+
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
+
+
+class LowFrequencyMask(BaseWaveformTransform):
+    """Ref: https://www.kaggle.com/vladimirsydor/4-th-place-solution-inference-and-training-tips?scriptVersionId=42796948"""
+
+    def __init__(
+        self,
+        p: int = 0.5,
+        allways_apply: bool = False,
+        max_cutoff: float = 5,
+        min_cutoff: float = 4,
+    ):
+        super().__init__(p)
+        self.p = p
+        self.allways_apply = allways_apply
+        self.max_cutoff = max_cutoff
+        self.min_cutoff = min_cutoff
+
+    def apply(self, au, sr):
+        if np.random.binomial(n=1, p=self.p) or self.allways_apply:
+            cutoff_value = np.random.uniform(low=self.min_cutoff, high=self.max_cutoff)
+            au = butter_lowpass_filter(au, cutoff=cutoff_value, fs=sr / 1000)
+
+        return au
 
 
 class OneOf:
