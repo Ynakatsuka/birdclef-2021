@@ -74,9 +74,6 @@ def build_test_dataloaders(config):
         default_args=transform_configs,
     )
 
-    dataloaders = []
-    ids = []
-
     data_dir = os.path.join(
         config.trainer.inference.input_dir,
         "*.ogg",

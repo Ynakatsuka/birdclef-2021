@@ -214,13 +214,18 @@ def run(config):
         .values
     )
 
-    # predictions
-    pred = df[columns].values > 0.5
-
     # evaluate
     result = {}
+
+    pred = df[columns].values > 0.5
     for func in [f1_score, precision_score, recall_score]:
         result[f"train_soundscapes_{func.__name__}_50"] = func(
+            target, pred, average="samples", zero_division=1
+        )
+
+    pred = df[columns].values > 0.25
+    for func in [f1_score, precision_score, recall_score]:
+        result[f"train_soundscapes_{func.__name__}_25"] = func(
             target, pred, average="samples", zero_division=1
         )
 
