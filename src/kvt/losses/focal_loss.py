@@ -123,3 +123,83 @@ class BinaryReducedFocalLoss(nn.Module):
             return loss.mean()
         else:
             return loss
+
+
+class LabelSmoothBinaryFocalLoss(nn.Module):
+    def __init__(self, lb_smooth=0.1, gamma=2, alpha=None, pos_weight=None, **_):
+        super().__init__()
+        self.lb_smooth = lb_smooth
+        self.gamma = gamma
+        self.alpha = alpha
+        self.pos_weight = pos_weight
+
+    def forward(self, input, target, reduction=True, weight=None):
+        target = target.float()
+        target = target * (1 - self.lb_smooth) + self.lb_smooth / target.size(1)
+
+        input = input.view(-1, 1)
+        target = target.view(-1, 1)
+        assert target.size() == input.size(), f"{target.size()} vs {input.size()}"
+        if weight is not None:
+            assert target.size() == weight.size()
+
+        # For test
+        if isinstance(self.pos_weight, float) or isinstance(self.pos_weight, int):
+            weight = target * (self.pos_weight - 1.0) + 1.0
+        else:
+            if weight is None:
+                weight = target + 2.0
+
+        max_val = (-input).clamp(min=0)
+
+        loss = (
+            input
+            - input * target
+            + max_val
+            + ((-max_val).exp() + (-input - max_val).exp()).log()
+        )
+        invprobs = F.logsigmoid(-input * (target * 2 - 1))
+        loss = (invprobs * self.gamma).exp() * loss
+        if weight is not None:
+            loss = loss * weight
+
+        if reduction:
+            return loss.mean()
+        else:
+            return loss
+
+
+class BinaryDualFocalLoss(nn.Module):
+    def __init__(self, gamma=2, alpha=None, pos_weight=None, **_):
+        super().__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.pos_weight = pos_weight
+
+    def forward(self, input, target, reduction=True, weight=None):
+        target = target.float()
+
+        input = input.view(-1, 1)
+        target = target.view(-1, 1)
+        assert target.size() == input.size(), f"{target.size()} vs {input.size()}"
+        if weight is not None:
+            assert target.size() == weight.size()
+
+        # For test
+        if isinstance(self.pos_weight, float) or isinstance(self.pos_weight, int):
+            weight = target * (self.pos_weight - 1.0) + 1.0
+        else:
+            if weight is None:
+                weight = target + 2.0
+
+        proba = F.sigmoid(input)
+        diff = torch.abs(target - proba)
+        loss = -(diff * (torch.log(1.0 - diff) ** self.gamma)).sum(dim=1)
+
+        if weight is not None:
+            loss = loss * weight
+
+        if reduction:
+            return loss.mean()
+        else:
+            return loss

@@ -12,10 +12,10 @@ import torch.nn.functional as F
 
 @kvt.LOSSES.register
 class BCEFocalLossHook(nn.Module):
-    def __init__(self, weights=[1, 1], class_weights=None):
+    def __init__(self, weights=[1, 1], class_weights=None, gamma=2):
         super().__init__()
 
-        self.focal = kvt.losses.BinaryFocalLoss(pos_weight=class_weights)
+        self.focal = kvt.losses.BinaryFocalLoss(pos_weight=class_weights, gamma=gamma)
         self.weights = weights
         self.class_weights = class_weights
 
@@ -32,10 +32,10 @@ class BCEFocalLossHook(nn.Module):
 
 @kvt.LOSSES.register
 class BCEFocal2WayLossHook(nn.Module):
-    def __init__(self, weights=[1, 1], class_weights=None):
+    def __init__(self, weights=[1, 1], class_weights=None, gamma=2):
         super().__init__()
 
-        self.focal = kvt.losses.BinaryFocalLoss(pos_weight=class_weights)
+        self.focal = kvt.losses.BinaryFocalLoss(pos_weight=class_weights, gamma=gamma)
         self.weights = weights
 
     def forward(self, input, target):
@@ -53,10 +53,32 @@ class BCEFocal2WayLossHook(nn.Module):
 
 @kvt.LOSSES.register
 class BCE2WayLossHook(BCEFocal2WayLossHook):
-    def __init__(self, weights=[1, 1], class_weights=None):
+    def __init__(self, weights=[1, 1], class_weights=None, gamma=2):
         super().__init__()
 
-        self.focal = nn.BCEWithLogitsLoss(pos_weight=class_weights)
+        self.focal = nn.BCEWithLogitsLoss(pos_weight=class_weights, gamma=gamma)
+        self.weights = weights
+
+
+@kvt.LOSSES.register
+class LabelSmoothFocal2WayLossHook(BCEFocal2WayLossHook):
+    def __init__(self, weights=[1, 1], class_weights=None, gamma=2):
+        super().__init__()
+
+        self.focal = kvt.losses.LabelSmoothBinaryFocalLoss(
+            pos_weight=class_weights, gamma=gamma
+        )
+        self.weights = weights
+
+
+@kvt.LOSSES.register
+class BinaryDualFocal2WayLossHook(BCEFocal2WayLossHook):
+    def __init__(self, weights=[1, 1], class_weights=None, gamma=2):
+        super().__init__()
+
+        self.focal = kvt.losses.BinaryDualFocalLoss(
+            pos_weight=class_weights, gamma=gamma
+        )
         self.weights = weights
 
 
