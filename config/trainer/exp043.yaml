@@ -31,7 +31,7 @@ trainer:
   # stochastic_weight_avg: True
 
 inference:
-  input_dir: '${input_dir}/test_soundscapes/'
+  input_dir: '${input_dir}/train_soundscapes/'
   dirpath: '${save_dir}/predictions/'
   filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.pkl'
 logger:
