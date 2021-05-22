@@ -1,0 +1,112 @@
+# @package _group_
+skip_training: False
+
+train:
+  batch_size: 8
+  backbone_lr_ratio:
+  encoder_lr_ratio:
+
+evaluation:
+  batch_size: 16
+  save_prediction: True
+  dirpath: '${save_dir}/predictions/oof/'
+  name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
+
+trainer:
+  resume_from_checkpoint: # '${trainer.dir}/trainer_exp000_aug_exp000_fold_0_epoch=009.ckpt'
+  max_epochs: 35
+  check_val_every_n_epoch: 1
+  accumulate_grad_batches: 1
+  # amp_backend: 'native'
+  # amp_level: 'O2'
+  # precision: 16
+  gpus: [0, 1]
+  accelerator: 'ddp'
+  sync_batchnorm: True
+  auto_lr_find: False
+  auto_scale_batch_size: False
+  benchmark: True
+  deterministic: True
+  num_sanity_val_steps: 0
+  # stochastic_weight_avg: True
+
+inference:
+  input_dir: '${input_dir}/test_soundscapes/'
+  dirpath: '${save_dir}/predictions/'
+  filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.pkl'
+logger:
+  _target_: pytorch_lightning.loggers.WandbLogger
+  project: ${project}
+  name: ${experiment_name}
+  # mode: 'disabled'
+
+callbacks:
+  ModelCheckpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    monitor: 'val_loss'
+    save_last: False
+    save_top_k: 1
+    dirpath: '${save_dir}/models/${experiment_name}'
+    filename: 'fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
+
+model:
+  name: 'SED'
+  params:
+    num_classes: 397
+    backbone: 
+      name: 'tf_efficientnet_b0_ns'
+      params:
+        in_chans: 1
+        pretrained: True
+    n_fft: 2048
+    hop_length: 512
+    sample_rate: ${dataset.dataset.params.sample_rate}
+    n_mels: 256
+    fmin: 20
+    fmax: 16000
+    dropout_rate: 0.25
+    time_drop_width: 64
+    time_stripes_num: 2
+    freq_drop_width: 8
+    freq_stripes_num: 2
+    spec_augmentation_method: 'cm'
+
+loss:
+  name: 'BCEFocal2WayLossHook'
+
+metrics: 
+  f1_30:
+    name: 'rowwise_micro_f1'
+    params:
+      threshold: 0.3
+  f1_50:
+    name: 'rowwise_micro_f1'
+    params:
+      threshold: 0.5
+  f1_70:
+    name: 'rowwise_micro_f1'
+    params:
+      threshold: 0.7
+  mAP:
+    name: 'mAP'
+
+optimizer:
+  name: 'RAdam'
+  params:
+    lr: 0.001
+    weight_decay: 0.01
+
+scheduler:
+  name: 'CosineAnnealingLR'
+  params:
+    T_max: 10
+
+lightning_module: 
+  name: 'LightningModuleBase'
+  params:
+      max_epochs: ${trainer.trainer.max_epochs}
+      disable_strong_transform_in_last_epochs: 5    
+
+hooks:
+  post_forward: 
+    name: KeySelectPostForwardHook
