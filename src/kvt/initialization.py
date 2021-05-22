@@ -138,6 +138,7 @@ def register_torch_modules():
         kvt.optimizers.SAM,
         kvt.optimizers.SM3,
         kvt.optimizers.RAdam,
+        kvt.optimizers.MADGRAD,
     ]
     for optimizer in optimizers:
         OPTIMIZERS.register(optimizer)

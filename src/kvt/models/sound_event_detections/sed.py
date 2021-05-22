@@ -164,6 +164,9 @@ class SED(nn.Module):
         min_db=120,
         apply_pcen=False,
         freeze_pcen_parameters=False,
+        use_multisample_dropout=False,
+        multisample_dropout=0.5,
+        num_multisample_dropout=5,
         **params,
     ):
         super().__init__()
@@ -179,6 +182,8 @@ class SED(nn.Module):
         self.apply_delta_spectrum = apply_delta_spectrum
         self.apply_time_freq_encoding = apply_time_freq_encoding
         self.apply_pcen = apply_pcen
+        self.use_multisample_dropout = use_multisample_dropout
+        self.num_multisample_dropout = num_multisample_dropout
 
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
@@ -246,6 +251,9 @@ class SED(nn.Module):
         # layers = list(encoder.children())[:-2]
         # self.encoder = nn.Sequential(*layers)
         self.encoder = encoder
+
+        if self.use_multisample_dropout:
+            self.big_dropout = nn.Dropout(p=multisample_dropout)
 
         self.fc1 = nn.Linear(in_features, in_features, bias=True)
         self.att_block = AttBlockV2(in_features, num_classes, activation="sigmoid")
@@ -334,11 +342,25 @@ class SED(nn.Module):
         # (batch_size, channels, frames)
         x = gem(x, kernel_size=3)
 
-        x = F.dropout(x, p=self.dropout_rate, training=self.training)
-        x = x.transpose(1, 2).contiguous()
+        if self.use_multisample_dropout:
+            x = x.transpose(1, 2).contiguous()
+            x = torch.mean(
+                torch.stack(
+                    [
+                        F.relu_(self.fc1(self.big_dropout(x)))
+                        for _ in range(self.num_multisample_dropout)
+                    ],
+                    dim=0,
+                ),
+                dim=0,
+            )
+            x = x.transpose(1, 2).contiguous()
+        else:
+            x = F.dropout(x, p=self.dropout_rate, training=self.training)
+            x = x.transpose(1, 2).contiguous()
 
-        x = F.relu_(self.fc1(x))
-        x = x.transpose(1, 2).contiguous()
+            x = F.relu_(self.fc1(x))
+            x = x.transpose(1, 2).contiguous()
 
         (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
         logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
