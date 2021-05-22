@@ -1,8 +1,9 @@
+import glob
 import math
 import os
-import random
 
 import kvt
+import librosa
 import numpy as np
 import pandas as pd
 import soundfile as sf
@@ -30,6 +31,9 @@ class WaveformDataset(torch.utils.data.Dataset):
         addtional_numerical_columns=None,
         addtional_target_columns=None,
         use_head_or_tail=False,
+        use_external_data_as_nocall=False,
+        external_datadir=None,
+        nocall_replace_probability=0,
         **params,
     ):
         self.image_column = image_column
@@ -47,6 +51,9 @@ class WaveformDataset(torch.utils.data.Dataset):
         self.addtional_numerical_columns = addtional_numerical_columns
         self.addtional_target_columns = addtional_target_columns
         self.use_head_or_tail = use_head_or_tail
+        self.use_external_data_as_nocall = use_external_data_as_nocall
+        self.external_datadir = external_datadir
+        self.nocall_replace_probability = nocall_replace_probability
 
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
@@ -87,6 +94,11 @@ class WaveformDataset(torch.utils.data.Dataset):
                 ].values
             else:
                 raise ValueError
+
+        if self.use_external_data_as_nocall:
+            self.target_unique_values += ["nocall"]
+            self.nocall_paths = glob.glob(f"{external_datadir}/*.wav")
+            assert len(self.nocall_paths) > 0
 
         # image dir
         if self.split == "test":
@@ -136,12 +148,23 @@ class WaveformDataset(torch.utils.data.Dataset):
         return labels
 
     def __getitem__(self, idx):
-        wav_name = self.image_filenames[idx]
-        ebird_code = self.targets[idx]
+        if self.use_external_data_as_nocall and (
+            np.random.rand() <= self.nocall_replace_probability
+        ):
+            i = np.random.randint(len(self.nocall_paths))
+            ebird_code = "nocall"
+            x, sr = librosa.load(self.nocall_paths[i], sr=self.sample_rate)
+        else:
+            ebird_code = self.targets[idx]
+            x, sr = sf.read(
+                os.path.join(
+                    self.input_dir,
+                    self.images_dir,
+                    ebird_code,
+                    self.image_filenames[idx],
+                )
+            )
 
-        x, sr = sf.read(
-            os.path.join(self.input_dir, self.images_dir, ebird_code, wav_name)
-        )
         x, start = self._preprocess_input(x, sr)
 
         if self.transform is not None:
@@ -230,12 +253,21 @@ class WaveformDatasetWithMissingLabels(WaveformDataset):
                         start = len(x) - effective_length
                 else:
                     if self.apply_adaptive_sampleing:
-                        preds = oof_preds.raw_pred.apply(
-                            lambda x: x[self.target_unique_values.index(ebird_code)]
-                        ).rolling(self.period).max().dropna().values
+                        preds = (
+                            oof_preds.raw_pred.apply(
+                                lambda x: x[self.target_unique_values.index(ebird_code)]
+                            )
+                            .rolling(self.period)
+                            .max()
+                            .dropna()
+                            .values
+                        )
                         p = preds / preds.sum()
                         if len(p):
-                            start = min(sr * np.random.choice(range(len(p)), 1, p=p)[0], len_x - effective_length)
+                            start = min(
+                                sr * np.random.choice(range(len(p)), 1, p=p)[0],
+                                len_x - effective_length,
+                            )
                         else:
                             start = np.random.randint(len_x - effective_length)
                     else:
@@ -256,7 +288,7 @@ class WaveformDatasetWithMissingLabels(WaveformDataset):
         )
         oof_preds = pd.read_pickle(
             os.path.join(self.input_dir, "pred_labels", wav_name + ".pkl")
-        )[:math.ceil(len(x)/sr)]
+        )[: math.ceil(len(x) / sr)]
 
         x, start = self._preprocess_input(x, sr, oof_preds, ebird_code)
 
