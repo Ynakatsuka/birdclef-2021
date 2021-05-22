@@ -4,9 +4,11 @@ from .audio import (
     OneOf,
     PinkNoise,
     RandomVolume,
+    SpecifiedNoise,
     SpeedTuning,
     StretchAudio,
     TimeShift,
+    or_mixup,
 )
 from .augmix import RandomAugMix
 from .autoaugment import ImageNetPolicy

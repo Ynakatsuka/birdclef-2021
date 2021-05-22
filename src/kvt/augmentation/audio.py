@@ -1,3 +1,6 @@
+import glob
+import os
+
 try:
     import colorednoise as cn
 except ImportError:
@@ -5,6 +8,7 @@ except ImportError:
 import cv2
 import librosa
 import numpy as np
+import torch
 from audiomentations.core.transforms_interface import BaseWaveformTransform
 from scipy.signal import butter, lfilter
 
@@ -185,7 +189,45 @@ class LowFrequencyMask(BaseWaveformTransform):
             cutoff_value = np.random.uniform(low=self.min_cutoff, high=self.max_cutoff)
             au = butter_lowpass_filter(au, cutoff=cutoff_value, fs=sr / 1000)
 
-        return au
+        return au.astype("float32")
+
+
+class SpecifiedNoise(BaseWaveformTransform):
+    """Ref: https://www.kaggle.com/vladimirsydor/4-th-place-solution-inference-and-training-tips?scriptVersionId=42796948"""
+
+    def __init__(
+        self,
+        noise_folder_path: str,
+        p: int = 0.5,
+        allways_apply: bool = False,
+        low_alpha: float = 0.0,
+        high_alpha: float = 1.0,
+    ):
+        super().__init__(p)
+        filenames = glob.glob(os.path.join(noise_folder_path, "*.wav"))
+        self.noises = [librosa.load(noise_path, sr=None)[0] for noise_path in filenames]
+        self.noises = [librosa.util.normalize(noise) for noise in self.noises]
+        self.p = p
+        self.allways_apply = allways_apply
+        self.low_alpha = low_alpha
+        self.high_alpha = high_alpha
+
+    def apply(self, au, sr):
+        if np.random.binomial(n=1, p=self.p) or self.allways_apply:
+            alpha = np.random.uniform(low=self.low_alpha, high=self.high_alpha)
+            noise = self.noises[np.random.randint(low=0, high=len(self.noises))]
+
+            # Repeat the sound if it shorter than the input sound
+            num_samples = len(au)
+            while len(noise) < num_samples:
+                noise = np.concatenate((noise, noise))
+
+            if len(noise) > num_samples:
+                noise = noise[0:num_samples]
+
+            au = au * (1 - alpha) + noise * alpha
+
+        return au.astype("float32")
 
 
 class OneOf:
@@ -200,3 +242,18 @@ class OneOf:
             trns = self.transforms[trns_idx]
             y = trns(y, sr)
         return y
+
+
+def or_mixup(data, target, alpha):
+    indices = torch.randperm(data.size(0))
+    shuffled_data = data[indices]
+    shuffled_target = target[indices]
+
+    data = data + shuffled_data
+    for i in range(data.shape[0]):
+        data[i, :] = data[i, :] / data[i, :].abs().max()
+
+    target = target + shuffled_target
+    target = target.clamp(min=0, max=1.0)
+
+    return data, target, shuffled_target, 1, indices
