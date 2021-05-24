@@ -2,12 +2,12 @@
 skip_training: False
 
 train:
-  batch_size: 16
+  batch_size: 32
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 32
+  batch_size: 64
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
@@ -28,7 +28,7 @@ trainer:
   benchmark: True
   deterministic: True
   num_sanity_val_steps: 0
-  # stochastic_weight_avg: True
+  stochastic_weight_avg: True
 
 inference:
   input_dir: '${input_dir}/train_soundscapes/'
@@ -54,9 +54,9 @@ model:
   params:
     num_classes: 397
     backbone: 
-      name: 'seresnet200d'
+      name: 'tf_efficientnet_b0_ns'
       params:
-        in_chans: 1
+        in_chans: 3
         pretrained: True
     n_fft: 2048
     hop_length: 512
@@ -70,6 +70,9 @@ model:
     freq_drop_width: 8
     freq_stripes_num: 2
     spec_augmentation_method: 'cm'
+    use_gru_layer: True
+    use_loudness: True
+    use_spectral_centroid: True
 
 loss:
   name: 'BCEFocal2WayLossHook'
@@ -89,6 +92,14 @@ metrics:
       threshold: 0.7
   mAP:
     name: 'mAP'
+  rc_50:
+    name: 'rowwise_micro_recall'
+    params:
+      threshold: 0.5
+  pr_50:
+    name: 'rowwise_micro_precision'
+    params:
+      threshold: 0.5
 
 optimizer:
   name: 'RAdam'

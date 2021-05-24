@@ -54,7 +54,7 @@ model:
   params:
     num_classes: 397
     backbone: 
-      name: 'seresnet200d'
+      name: 'resnest50'
       params:
         in_chans: 1
         pretrained: True

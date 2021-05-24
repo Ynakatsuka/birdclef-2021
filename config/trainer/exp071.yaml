@@ -14,7 +14,7 @@ evaluation:
 
 trainer:
   resume_from_checkpoint: # '${trainer.dir}/trainer_exp000_aug_exp000_fold_0_epoch=009.ckpt'
-  max_epochs: 35
+  max_epochs: 40
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
   # amp_backend: 'native'

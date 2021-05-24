@@ -2,12 +2,12 @@
 skip_training: False
 
 train:
-  batch_size: 8
+  batch_size: 16
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 64
+  batch_size: 32
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'

@@ -56,7 +56,7 @@ model:
     backbone: 
       name: 'tf_efficientnet_b0_ns'
       params:
-        in_chans: 2
+        in_chans: 3
         pretrained: True
     n_fft: 2048
     hop_length: 512
