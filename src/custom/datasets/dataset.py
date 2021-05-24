@@ -34,6 +34,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         use_external_data_as_nocall=False,
         external_datadir=None,
         nocall_replace_probability=0,
+        label_smoothing=0,
         **params,
     ):
         self.image_column = image_column
@@ -54,6 +55,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         self.use_external_data_as_nocall = use_external_data_as_nocall
         self.external_datadir = external_datadir
         self.nocall_replace_probability = nocall_replace_probability
+        self.label_smoothing = label_smoothing
 
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
@@ -136,20 +138,27 @@ class WaveformDataset(torch.utils.data.Dataset):
         return x, start
 
     def _preprocess_target(self, y, secondary_y=None):
-        labels = np.zeros(len(self.target_unique_values), dtype="float32")
-        labels[self.target_unique_values.index(y)] = 1.0
+        if self.split == "train":
+            smoothing = self.label_smoothing
+        else:
+            smoothing = 0
+
+        labels = np.zeros(len(self.target_unique_values), dtype="float32") + smoothing
+        labels[self.target_unique_values.index(y)] = 1.0 - smoothing
         if (secondary_y is not None) and (self.split == "train"):
             for sy in secondary_y:
                 if sy in self.target_unique_values:
                     labels[self.target_unique_values.index(sy)] = (
-                        1.0 * self.secondary_coef
-                    )
+                        1.0 - smoothing
+                    ) * self.secondary_coef
 
         return labels
 
     def __getitem__(self, idx):
-        if self.use_external_data_as_nocall and (
-            np.random.rand() <= self.nocall_replace_probability
+        if (
+            self.use_external_data_as_nocall
+            and (np.random.rand() <= self.nocall_replace_probability)
+            and (self.split == "train")
         ):
             i = np.random.randint(len(self.nocall_paths))
             ebird_code = "nocall"
