@@ -1,9 +1,9 @@
 {
-  "title": "birdclef-2021-src",
-  "id": "naka2ka/birdclef-2021-src",
-  "licenses": [
-    {
-      "name": "CC0-1.0"
-    }
-  ]
+    "id": "naka2ka/birdclef-2021-models",
+    "licenses": [
+        {
+            "name": "CC0-1.0"
+        }
+    ],
+    "title": "birdclef-2021-models"
 }
