@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from kvt.augmentation import SpecAugmentationPlusPlus, mixup
+from kvt.models.layers import Flatten, GeM
 from torchlibrosa.augmentation import SpecAugmentation
 from torchlibrosa.stft import LogmelFilterBank, Spectrogram
 
@@ -167,6 +168,7 @@ class SED(nn.Module):
         use_multisample_dropout=False,
         multisample_dropout=0.5,
         num_multisample_dropout=5,
+        pooling_kernel_size=3,
         **params,
     ):
         super().__init__()
@@ -184,6 +186,7 @@ class SED(nn.Module):
         self.apply_pcen = apply_pcen
         self.use_multisample_dropout = use_multisample_dropout
         self.num_multisample_dropout = num_multisample_dropout
+        self.pooling_kernel_size = pooling_kernel_size
 
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
@@ -340,7 +343,7 @@ class SED(nn.Module):
 
         # channel smoothing
         # (batch_size, channels, frames)
-        x = gem(x, kernel_size=3)
+        x = gem(x, kernel_size=self.pooling_kernel_size)
 
         if self.use_multisample_dropout:
             x = x.transpose(1, 2).contiguous()
@@ -628,3 +631,186 @@ class SEDV4(SED):
         }
 
         return output_dict
+
+
+class ImageSED(nn.Module):
+    def __init__(
+        self,
+        encoder,
+        in_features,
+        num_classes,
+        n_fft,
+        hop_length,
+        sample_rate,
+        n_mels,
+        fmin,
+        fmax,
+        dropout_rate=0.5,
+        freeze_spectrogram_parameters=True,
+        freeze_logmel_parameters=True,
+        use_spec_augmentation=True,
+        time_drop_width=64,
+        time_stripes_num=2,
+        freq_drop_width=8,
+        freq_stripes_num=2,
+        spec_augmentation_method=None,
+        apply_mixup=False,
+        apply_spec_shuffle=False,
+        spec_shuffle_prob=0,
+        use_gru_layer=False,
+        apply_tta=False,
+        use_loudness=False,
+        use_spectral_centroid=False,
+        apply_delta_spectrum=False,
+        apply_time_freq_encoding=False,
+        min_db=120,
+        apply_pcen=False,
+        freeze_pcen_parameters=False,
+        use_multisample_dropout=False,
+        multisample_dropout=0.5,
+        num_multisample_dropout=5,
+        pooling_kernel_size=3,
+        **params,
+    ):
+        super().__init__()
+        self.n_mels = n_mels
+        self.dropout_rate = dropout_rate
+        self.apply_mixup = apply_mixup
+        self.apply_spec_shuffle = apply_spec_shuffle
+        self.spec_shuffle_prob = spec_shuffle_prob
+        self.use_gru_layer = use_gru_layer
+        self.apply_tta = apply_tta
+        self.use_loudness = use_loudness
+        self.use_spectral_centroid = use_spectral_centroid
+        self.apply_delta_spectrum = apply_delta_spectrum
+        self.apply_time_freq_encoding = apply_time_freq_encoding
+        self.apply_pcen = apply_pcen
+        self.use_multisample_dropout = use_multisample_dropout
+        self.num_multisample_dropout = num_multisample_dropout
+        self.pooling_kernel_size = pooling_kernel_size
+
+        # Spectrogram extractor
+        self.spectrogram_extractor = Spectrogram(
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=n_fft,
+            window="hann",
+            center=True,
+            pad_mode="reflect",
+            freeze_parameters=freeze_spectrogram_parameters,
+        )
+
+        # Logmel feature extractor
+        self.logmel_extractor = LogmelFilterBank(
+            sr=sample_rate,
+            n_fft=n_fft,
+            n_mels=n_mels,
+            fmin=fmin,
+            fmax=fmax,
+            ref=1.0,
+            amin=1e-10,
+            top_db=None,
+            freeze_parameters=freeze_logmel_parameters,
+        )
+
+        # Spec augmenter
+        self.spec_augmenter = None
+        if use_spec_augmentation and (spec_augmentation_method is None):
+            self.spec_augmenter = SpecAugmentation(
+                time_drop_width=time_drop_width,
+                time_stripes_num=time_stripes_num,
+                freq_drop_width=freq_drop_width,
+                freq_stripes_num=freq_stripes_num,
+            )
+        elif use_spec_augmentation and (spec_augmentation_method is not None):
+            self.spec_augmenter = SpecAugmentationPlusPlus(
+                time_drop_width=time_drop_width,
+                time_stripes_num=time_stripes_num,
+                freq_drop_width=freq_drop_width,
+                freq_stripes_num=freq_stripes_num,
+                method=spec_augmentation_method,
+            )
+
+        if self.use_gru_layer:
+            self.gru = nn.GRU(in_features, in_features, batch_first=True)
+
+        if self.use_loudness:
+            self.loudness_bn = nn.BatchNorm1d(1)
+            self.loudness_extractor = Loudness(
+                sr=sample_rate,
+                n_fft=n_fft,
+                min_db=min_db,
+            )
+
+        if self.use_spectral_centroid:
+            self.spectral_centroid_bn = nn.BatchNorm1d(1)
+
+        if self.apply_pcen:
+            self.pcen_transform = PCENTransform(
+                trainable=~freeze_pcen_parameters,
+            )
+
+        self.encoder = encoder
+
+    def forward(self, input, mixup_lambda=None, mixup_index=None):
+        # (batch_size, 1, time_steps, freq_bins)
+        x = self.spectrogram_extractor(input)
+
+        additional_features = []
+        if self.use_loudness:
+            loudness = self.loudness_extractor(x)
+            loudness = self.loudness_bn(loudness)
+            loudness = loudness.unsqueeze(-1)
+            loudness = loudness.repeat(1, 1, 1, self.n_mels)
+            additional_features.append(loudness)
+
+        if self.use_spectral_centroid:
+            spectral_centroid = x.mean(-1)
+            spectral_centroid = self.spectral_centroid_bn(spectral_centroid)
+            spectral_centroid = spectral_centroid.unsqueeze(-1)
+            spectral_centroid = spectral_centroid.repeat(1, 1, 1, self.n_mels)
+            additional_features.append(spectral_centroid)
+
+        # logmel
+        x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
+
+        if (
+            self.training
+            and self.apply_spec_shuffle
+            and (np.random.rand() < self.spec_shuffle_prob)
+        ):
+            # (batch_size, 1, time_steps, freq_bins)
+            idx = torch.randperm(x.shape[3])
+            x = x[:, :, :, idx]
+
+        if (self.training or self.apply_tta) and (self.spec_augmenter is not None):
+            x = self.spec_augmenter(x)
+
+        # additional features
+        if self.apply_delta_spectrum:
+            delta_1 = make_delta(x)
+            delta_2 = make_delta(delta_1)
+            additional_features.extend([delta_1, delta_2])
+
+        if self.apply_time_freq_encoding:
+            freq_encode = add_frequency_encoding(x)
+            time_encode = add_time_encoding(x)
+            additional_features.extend([freq_encode, time_encode])
+
+        if self.apply_pcen:
+            pcen = self.pcen_transform(x)
+            additional_features.append(pcen)
+
+        if len(additional_features) > 0:
+            additional_features.append(x)
+            x = torch.cat(additional_features, dim=1)
+
+        # Mixup on spectrogram
+        if self.training and self.apply_mixup and (mixup_lambda is not None):
+            x = do_mixup(x, mixup_lambda, mixup_index)
+
+        x = x.transpose(2, 3).contiguous()
+        # (batch_size, channels, freq, frames)
+        x = self.encoder(x)
+
+        return x

@@ -7,18 +7,11 @@ import os
 import kvt.registry
 import torch
 import torch.nn as nn
-from kvt.models.layers import AdaptiveConcatPool2d, Flatten, GeM, SEBlock
+from kvt.models.layers import (AdaptiveConcatPool2d, Flatten, GeM, Identity,
+                               SEBlock)
 from kvt.registry import BACKBONES, MODELS
 from kvt.utils import build_from_config
 from omegaconf import OmegaConf
-
-
-class Identity(nn.Module):
-    def __init__(self):
-        super(Identity, self).__init__()
-
-    def forward(self, x):
-        return x
 
 
 def analyze_in_features(model):
@@ -83,21 +76,21 @@ def replace_last_linear(
     in_features *= fc_input_shape_ratio
 
     # replace fc
-    last_layers = [Flatten()]
-
-    if use_seblock:
-        last_layers.append(SEBlock(in_features))
-
-    last_layers.extend(
-        [
-            nn.Dropout(dropout_rate),
-            nn.Linear(in_features, num_classes),
-        ]
-    )
-    last_layers = nn.Sequential(*last_layers)
-
     if use_identity_as_last_layer:
         last_layers = Identity()
+    else:
+        last_layers = [Flatten()]
+
+        if use_seblock:
+            last_layers.append(SEBlock(in_features))
+
+        last_layers.extend(
+            [
+                nn.Dropout(dropout_rate),
+                nn.Linear(in_features, num_classes),
+            ]
+        )
+        last_layers = nn.Sequential(*last_layers)
 
     if hasattr(model, "classifier"):
         model.classifier = last_layers
@@ -216,17 +209,23 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
         # if in_chans is valid key
         backbone = build_from_config(backbone_config, BACKBONES, params)
 
-        # params = {k: v for k, v in params.items() if k != "in_channels"}
-        # backbone = build_from_config(backbone_config, BACKBONES, params)
-        # backbone = update_input_layer(backbone, in_channels)
-
         in_features = analyze_in_features(backbone)
-        backbone = replace_last_linear(
-            backbone,
-            num_classes=1,
-            pool_type="identity",
-            use_identity_as_last_layer=True,
-        )
+
+        # Image Classification
+        if "Image" in config.name:
+            backbone = replace_last_linear(
+                backbone,
+                num_classes=config.params.num_classes,
+                pool_type="gem",
+            )
+        # Normal SED
+        else:
+            backbone = replace_last_linear(
+                backbone,
+                num_classes=1,
+                pool_type="identity",
+                use_identity_as_last_layer=True,
+            )
 
         args = {"encoder": backbone, "in_features": in_features}
         model = build_from_config(config, MODELS, default_args=args)
