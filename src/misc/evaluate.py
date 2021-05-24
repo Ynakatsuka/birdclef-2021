@@ -28,6 +28,7 @@ from tools import evaluate
 
 LAT_DICT = {"COL": 5.57, "COR": 10.12, "SNE": 38.49, "SSW": 42.47}
 LON_DICT = {"COL": -75.85, "COR": -84.51, "SNE": -119.95, "SSW": -76.45}
+NUM_CLASSES = 397
 
 
 class TestDataset(Dataset):
@@ -217,13 +218,15 @@ def run(config):
     # evaluate
     result = {}
 
-    pred = df[columns].values > 0.5
+    pred = df[columns].values[:, :NUM_CLASSES] > 0.5
+
     for func in [f1_score, precision_score, recall_score]:
         result[f"train_soundscapes_{func.__name__}_50"] = func(
             target, pred, average="samples", zero_division=1
         )
 
-    pred = df[columns].values > 0.25
+    pred = df[columns].values[:, :NUM_CLASSES] > 0.25
+
     for func in [f1_score, precision_score, recall_score]:
         result[f"train_soundscapes_{func.__name__}_25"] = func(
             target, pred, average="samples", zero_division=1
