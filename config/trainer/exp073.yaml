@@ -13,7 +13,7 @@ evaluation:
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
 
 trainer:
-  resume_from_checkpoint: # '${trainer.dir}/trainer_exp000_aug_exp000_fold_0_epoch=009.ckpt'
+  resume_from_checkpoint: # '${save_dir}/models/${experiment_name}/fold_0_epoch=026.ckpt'
   max_epochs: 35
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
@@ -56,7 +56,7 @@ model:
     backbone: 
       name: 'tf_efficientnet_b0_ns'
       params:
-        in_chans: 3
+        in_chans: 2
         pretrained: True
     n_fft: 2048
     hop_length: 512
@@ -71,7 +71,6 @@ model:
     freq_stripes_num: 2
     spec_augmentation_method: 'cm'
     use_gru_layer: True
-    use_loudness: True
     use_spectral_centroid: True
 
 loss:

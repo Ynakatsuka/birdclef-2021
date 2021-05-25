@@ -14,7 +14,7 @@ evaluation:
 
 trainer:
   resume_from_checkpoint: # '${trainer.dir}/trainer_exp000_aug_exp000_fold_0_epoch=009.ckpt'
-  max_epochs: 35
+  max_epochs: 30
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
   # amp_backend: 'native'
@@ -50,31 +50,30 @@ callbacks:
     filename: 'fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
 
 model:
-  name: 'SED'
+  name: 'ImageSED'
   params:
     num_classes: 397
     backbone: 
+      # name: 'resnest50'
       name: 'tf_efficientnet_b0_ns'
       params:
-        in_chans: 3
+        in_chans: 1
         pretrained: True
     n_fft: 2048
     hop_length: 512
     sample_rate: ${dataset.dataset.params.sample_rate}
     n_mels: 128
-    fmin: 20
+    fmin: 0
     fmax: 16000
-    dropout_rate: 0.25
-    time_drop_width: 64
-    time_stripes_num: 2
-    freq_drop_width: 8
-    freq_stripes_num: 2
-    spec_augmentation_method: 'cm'
-    use_gru_layer: True
-    use_spectral_centroid: True
+    # dropout_rate: 0.25
+    # time_drop_width: 64
+    # time_stripes_num: 2
+    # freq_drop_width: 8
+    # freq_stripes_num: 2
+    # spec_augmentation_method: 'cm'
 
 loss:
-  name: 'BCEFocal2WayLossHook'
+  name: 'BCEWithLogitsLoss'
 
 metrics: 
   f1_30:
@@ -91,32 +90,33 @@ metrics:
       threshold: 0.7
   mAP:
     name: 'mAP'
-  rc_50:
-    name: 'rowwise_micro_recall'
-    params:
-      threshold: 0.5
-  pr_50:
-    name: 'rowwise_micro_precision'
-    params:
-      threshold: 0.5
+  # rc_50:
+  #   name: 'rowwise_micro_recall'
+  #   params:
+  #     threshold: 0.5
+  # pr_50:
+  #   name: 'rowwise_micro_precision'
+  #   params:
+  #     threshold: 0.5
 
 optimizer:
-  name: 'RAdam'
+  name: 'Adam'
   params:
-    lr: 0.001
+    lr: 8e-4
     weight_decay: 0.01
 
 scheduler:
   name: 'CosineAnnealingLR'
   params:
     T_max: 10
+    eta_min: 1e-5
 
 lightning_module: 
-  name: 'LightningModuleSpecMixUp'
+  name: 'LightningModuleBase'
   params:
       max_epochs: ${trainer.trainer.max_epochs}
       disable_strong_transform_in_last_epochs: 5    
 
 hooks:
   post_forward: 
-    name: KeySelectPostForwardHook
+    name: SigmoidPostForwardHook

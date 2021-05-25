@@ -54,7 +54,7 @@ model:
   params:
     num_classes: 397
     backbone: 
-      name: 'tf_efficientnetv2_s_in21k'
+      name: 'tf_efficientnetv2_s_21k'
       params:
         in_chans: 1
         pretrained: True
