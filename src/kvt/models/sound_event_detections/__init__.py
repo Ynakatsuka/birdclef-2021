@@ -1,1 +1,1 @@
-from .sed import SED, SEDV2, SEDV3, SEDV4
+from .sed import SED, SEDV2, SEDV3, SEDV4, ImageSED

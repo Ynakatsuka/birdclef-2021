@@ -7,8 +7,7 @@ import os
 import kvt.registry
 import torch
 import torch.nn as nn
-from kvt.models.layers import (AdaptiveConcatPool2d, Flatten, GeM, Identity,
-                               SEBlock)
+from kvt.models.layers import AdaptiveConcatPool2d, Flatten, GeM, Identity, SEBlock
 from kvt.registry import BACKBONES, MODELS
 from kvt.utils import build_from_config
 from omegaconf import OmegaConf
@@ -206,8 +205,18 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
         backbone_config = {"name": config.params.backbone.name}
         params = config.params.backbone.params
 
-        # if in_chans is valid key
-        backbone = build_from_config(backbone_config, BACKBONES, params)
+        try:
+            # if in_chans is valid key
+            backbone = build_from_config(backbone_config, BACKBONES, params)
+        except TypeError:
+            params_without_in_chans = {
+                k: v for k, v in params.items() if k != "in_chans"
+            }
+            backbone = build_from_config(
+                backbone_config, BACKBONES, params_without_in_chans
+            )
+            if params["in_chans"] != 3:
+                backbone = update_input_layer(backbone, params["in_chans"])
 
         in_features = analyze_in_features(backbone)
 
@@ -220,12 +229,17 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
             )
         # Normal SED
         else:
-            backbone = replace_last_linear(
-                backbone,
-                num_classes=1,
-                pool_type="identity",
-                use_identity_as_last_layer=True,
-            )
+            # TODO: bug fix
+            if config.params.backbone.name == "resnest50":
+                layers = list(backbone.children())[:-2]
+                backbone = nn.Sequential(*layers)
+            else:
+                backbone = replace_last_linear(
+                    backbone,
+                    num_classes=1,
+                    pool_type="identity",
+                    use_identity_as_last_layer=True,
+                )
 
         args = {"encoder": backbone, "in_features": in_features}
         model = build_from_config(config, MODELS, default_args=args)

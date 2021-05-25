@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchaudio
 from kvt.augmentation import SpecAugmentationPlusPlus, mixup
 from kvt.models.layers import Flatten, GeM
 from torchlibrosa.augmentation import SpecAugmentation
@@ -711,7 +712,10 @@ class ImageSED(nn.Module):
             amin=1e-10,
             top_db=None,
             freeze_parameters=freeze_logmel_parameters,
+            is_log=False,
         )
+
+        self.power_to_db = torchaudio.transforms.AmplitudeToDB()
 
         # Spec augmenter
         self.spec_augmenter = None
@@ -731,9 +735,6 @@ class ImageSED(nn.Module):
                 method=spec_augmentation_method,
             )
 
-        if self.use_gru_layer:
-            self.gru = nn.GRU(in_features, in_features, batch_first=True)
-
         if self.use_loudness:
             self.loudness_bn = nn.BatchNorm1d(1)
             self.loudness_extractor = Loudness(
@@ -750,7 +751,12 @@ class ImageSED(nn.Module):
                 trainable=~freeze_pcen_parameters,
             )
 
+        # layers = list(encoder.children())[:-2]
+        # self.encoder = nn.Sequential(*layers)
         self.encoder = encoder
+
+        if self.use_multisample_dropout:
+            self.big_dropout = nn.Dropout(p=multisample_dropout)
 
     def forward(self, input, mixup_lambda=None, mixup_index=None):
         # (batch_size, 1, time_steps, freq_bins)
@@ -774,6 +780,7 @@ class ImageSED(nn.Module):
         # logmel
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
 
+        # augmentation
         if (
             self.training
             and self.apply_spec_shuffle
@@ -809,8 +816,17 @@ class ImageSED(nn.Module):
         if self.training and self.apply_mixup and (mixup_lambda is not None):
             x = do_mixup(x, mixup_lambda, mixup_index)
 
-        x = x.transpose(2, 3).contiguous()
-        # (batch_size, channels, freq, frames)
-        x = self.encoder(x)
+        # power to db
+        x = self.power_to_db(x)  # (batch_size, 1, time_steps, mel_bins)
 
-        return x
+        # normalize
+        x /= 255
+        x = x.transpose(2, 3).contiguous()
+
+        # to color
+        # x = x.repeat(1, 3, 1, 1)
+
+        # (batch_size, channels, freq, frames)
+        output = self.encoder(x)
+
+        return output

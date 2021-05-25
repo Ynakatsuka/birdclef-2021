@@ -8,12 +8,8 @@ import numpy as np
 
 
 def get_training_augmentation():
-    print(
-        "[get_training_augmentation] crop_size:", crop_size, ", resize_to:", resize_to
-    )
-
     train_transform = [
-        audi.Normalize(),
+        # audi.Normalize(),
     ]
 
     return audi.Compose(train_transform)
@@ -22,7 +18,7 @@ def get_training_augmentation():
 def get_test_augmentation():
     """Add paddings to make audio shape divisible by 32"""
     test_transform = [
-        audi.Normalize(),
+        # audi.Normalize(),
     ]
     return audi.Compose(test_transform)
 
