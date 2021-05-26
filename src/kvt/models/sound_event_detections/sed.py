@@ -170,6 +170,7 @@ class SED(nn.Module):
         multisample_dropout=0.5,
         num_multisample_dropout=5,
         pooling_kernel_size=3,
+        apply_dropout_second=False,
         **params,
     ):
         super().__init__()
@@ -188,6 +189,7 @@ class SED(nn.Module):
         self.use_multisample_dropout = use_multisample_dropout
         self.num_multisample_dropout = num_multisample_dropout
         self.pooling_kernel_size = pooling_kernel_size
+        self.apply_dropout_second = apply_dropout_second
 
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
@@ -365,6 +367,9 @@ class SED(nn.Module):
 
             x = F.relu_(self.fc1(x))
             x = x.transpose(1, 2).contiguous()
+
+        if self.apply_dropout_second:
+            x = F.dropout(x, p=self.dropout_rate, training=self.training)
 
         (clipwise_output, norm_att, segmentwise_output) = self.att_block(x)
         logit = torch.sum(norm_att * self.att_block.cla(x), dim=2)
@@ -761,18 +766,18 @@ class ImageSED(nn.Module):
     def mono_to_color(self, X, eps=1e-6):
         bs = X.size(0)
         original_shape = X.shape
-        
+
         X = X.view(bs, -1)
         mean = X.mean(dim=-1).unsqueeze(-1)
         std = X.std(dim=-1).unsqueeze(-1)
 
         X = (X - mean) / (std + eps)
-        
+
         _min, _ = X.min(dim=-1)
         _max, _ = X.max(dim=-1)
         mask = (_max - _min) <= eps
-        
-        V = torch.min(torch.max(X, _min[:, None]), _max[:, None]) # clamp
+
+        V = torch.min(torch.max(X, _min[:, None]), _max[:, None])  # clamp
         _min = _min.unsqueeze(-1)
         _max = _max.unsqueeze(-1)
         V = 255 * (V - _min) / (_max - _min)
