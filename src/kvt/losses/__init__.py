@@ -1,4 +1,5 @@
 from .arcface import ArcFaceLoss
+from .bce import BCEWithLogitsLossAndIgnoreIndex
 from .combo_loss import SegmentationWithClassificationHeadLoss
 from .dice_loss import DiceLoss
 from .focal_loss import (
