@@ -1,8 +1,19 @@
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 
 from .base import LightningModuleBase
+
+
+def disable_bn(model):
+    for module in model.modules():
+        if isinstance(module, nn.BatchNorm):
+            module.eval()
+
+
+def enable_bn(model):
+    model.train()
 
 
 class LightningModuleSAM(LightningModuleBase):
@@ -49,8 +60,10 @@ class LightningModuleSAM(LightningModuleBase):
             self.manual_backward(loss)
             return loss
 
+        disable_bn(self.model)
         optimizer = self.optimizers()
         optimizer.step(closure=closure)
         optimizer.zero_grad()
+        enable_bn(self.model)
 
         return {"loss": loss}

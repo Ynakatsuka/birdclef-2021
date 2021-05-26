@@ -1,13 +1,13 @@
+""" Ref: https://github.com/davda54/sam/blob/main/sam.py"""
+
 import torch
 
 
 class SAM(torch.optim.Optimizer):
-    """ Ref: https://github.com/davda54/sam/blob/main/sam.py"""
-
-    def __init__(self, params, base_optimizer=torch.optim.Adam, rho=0.05, **kwargs):
+    def __init__(self, params, base_optimizer, rho=0.05, adaptive=False, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
 
-        defaults = dict(rho=rho, **kwargs)
+        defaults = dict(rho=rho, adaptive=adaptive, **kwargs)
         super(SAM, self).__init__(params, defaults)
 
         self.base_optimizer = base_optimizer(self.param_groups, **kwargs)
@@ -22,7 +22,11 @@ class SAM(torch.optim.Optimizer):
             for p in group["params"]:
                 if p.grad is None:
                     continue
-                e_w = p.grad * scale.to(p)
+                e_w = (
+                    (torch.pow(p, 2) if group["adaptive"] else 1.0)
+                    * p.grad
+                    * scale.to(p)
+                )
                 p.add_(e_w)  # climb to the local maximum "w + e(w)"
                 self.state[p]["e_w"] = e_w
 
@@ -59,11 +63,12 @@ class SAM(torch.optim.Optimizer):
         shared_device = self.param_groups[0]["params"][
             0
         ].device  # put everything on the same device, in case of model parallelism
-
         norm = torch.norm(
             torch.stack(
                 [
-                    p.grad.norm(p=2).to(shared_device)
+                    ((torch.abs(p) if group["adaptive"] else 1.0) * p.grad)
+                    .norm(p=2)
+                    .to(shared_device)
                     for group in self.param_groups
                     for p in group["params"]
                     if p.grad is not None
