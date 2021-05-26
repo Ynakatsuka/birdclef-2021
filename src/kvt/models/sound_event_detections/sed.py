@@ -758,6 +758,28 @@ class ImageSED(nn.Module):
         if self.use_multisample_dropout:
             self.big_dropout = nn.Dropout(p=multisample_dropout)
 
+    def mono_to_color(self, X, eps=1e-6):
+        bs = X.size(0)
+        original_shape = X.shape
+        
+        X = X.view(bs, -1)
+        mean = X.mean(dim=-1).unsqueeze(-1)
+        std = X.std(dim=-1).unsqueeze(-1)
+
+        X = (X - mean) / (std + eps)
+        
+        _min, _ = X.min(dim=-1)
+        _max, _ = X.max(dim=-1)
+        mask = (_max - _min) <= eps
+        
+        V = torch.min(torch.max(X, _min[:, None]), _max[:, None]) # clamp
+        _min = _min.unsqueeze(-1)
+        _max = _max.unsqueeze(-1)
+        V = 255 * (V - _min) / (_max - _min)
+        V[mask] = 0
+
+        return V.view(*original_shape)
+
     def forward(self, input, mixup_lambda=None, mixup_index=None):
         # (batch_size, 1, time_steps, freq_bins)
         x = self.spectrogram_extractor(input)
@@ -818,10 +840,10 @@ class ImageSED(nn.Module):
 
         # power to db
         x = self.power_to_db(x)  # (batch_size, 1, time_steps, mel_bins)
+        x = x.transpose(2, 3).contiguous()
 
         # normalize
-        x /= 255
-        x = x.transpose(2, 3).contiguous()
+        x = self.mono_to_color(x) / 255
 
         # to color
         # x = x.repeat(1, 3, 1, 1)

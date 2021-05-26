@@ -148,10 +148,14 @@ class WaveformDataset(torch.utils.data.Dataset):
         if (secondary_y is not None) and (self.split == "train"):
             for sy in secondary_y:
                 if sy in self.target_unique_values:
-                    labels[self.target_unique_values.index(sy)] = (
-                        1.0 - smoothing
-                    ) * self.secondary_coef
-
+                    if self.secondary_coef > 0:
+                        labels[self.target_unique_values.index(sy)] = (
+                            1.0 - smoothing
+                        ) * self.secondary_coef
+                    else:
+                        labels[
+                            self.target_unique_values.index(sy)
+                        ] = self.secondary_coef
         return labels
 
     def __getitem__(self, idx):
@@ -449,9 +453,14 @@ class WaveformDatasetWith2020CompetitionData(WaveformDataset):
         if (secondary_y is not None) and (self.split == "train"):
             for sy in secondary_y:
                 if sy in self.target_unique_values:
-                    labels[self.target_unique_values.index(sy)] = (
-                        1.0 - smoothing
-                    ) * self.secondary_coef
+                    if self.secondary_coef > 0:
+                        labels[self.target_unique_values.index(sy)] = (
+                            1.0 - smoothing
+                        ) * self.secondary_coef
+                    else:
+                        labels[
+                            self.target_unique_values.index(sy)
+                        ] = self.secondary_coef
 
         return labels
 
