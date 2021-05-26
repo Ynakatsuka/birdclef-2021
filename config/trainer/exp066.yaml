@@ -20,7 +20,7 @@ trainer:
   # amp_backend: 'native'
   # amp_level: 'O2'
   # precision: 16
-  gpus: [0, 1]
+  gpus: -1
   accelerator: 'ddp'
   sync_batchnorm: True
   auto_lr_find: False
