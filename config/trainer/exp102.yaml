@@ -57,7 +57,7 @@ model:
       # name: 'resnest50'
       name: 'tf_efficientnet_b0_ns'
       params:
-        in_chans: 1
+        in_chans: 3
         pretrained: True
     n_fft: 2048
     hop_length: 512
@@ -65,6 +65,7 @@ model:
     n_mels: 128
     fmin: 0
     fmax: 16000
+    apply_delta_spectrum: True
     # dropout_rate: 0.25
     # time_drop_width: 64
     # time_stripes_num: 2

@@ -1,0 +1,54 @@
+# @package _group_
+
+# image size
+# height: 512
+# width: 512
+
+# tta: 1 - 4
+tta: 10
+
+train:
+  - name: OneOf
+    member:
+      - name: AddGaussianNoise
+        params:
+      - name: PinkNoise
+        params:
+    params:
+        p: 0.3
+  - name: PolarityInversion
+    params:
+      p: 0.1
+  - name: RandomVolume
+    params:
+      p: 0.3
+  - name: LowFrequencyMask
+    params:
+      p: 0.5
+      min_cutoff: 5
+      max_cutoff: 7
+  # - name: Normalize
+    # params:
+        # p: 1.0
+        # mean: [0.86821552, 0.73319595, 0.81884091]
+        # std: [0.37468367, 0.5095725, 0.4131941]
+
+validation:
+  # - name: Normalize
+    # params:
+        # p: 1.0
+        # mean: [0.86821552, 0.73319595, 0.81884091]
+        # std: [0.37468367, 0.5095725, 0.4131941]
+
+test:
+  # - name: Normalize
+    # params:
+        # p: 1.0
+        # mean: [0.86821552, 0.73319595, 0.81884091]
+        # std: [0.37468367, 0.5095725, 0.4131941]
+
+# strong_transform:
+#   name: or_mixup
+#   p: 0.5
+#   params: 
+#     alpha: 0.2
