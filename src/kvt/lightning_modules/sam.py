@@ -8,7 +8,12 @@ from .base import LightningModuleBase
 
 def disable_bn(model):
     for module in model.modules():
-        if isinstance(module, nn.BatchNorm):
+        if (
+            isinstance(module, nn.BatchNorm1d)
+            or isinstance(module, nn.BatchNorm2d)
+            or isinstance(module, nn.BatchNorm3d)
+            or isinstance(module, nn.SyncBatchNorm)
+        ):
             module.eval()
 
 

@@ -130,15 +130,21 @@ class LightningModuleBase(pl.LightningModule):
 
     def train_dataloader(self):
         dls = [d["dataloader"] for d in self.dataloaders if d["mode"] == "train"]
-        assert len(dls) == 1
+        assert len(dls) <= 1
         return dls[0]
 
     def val_dataloader(self):
         dls = [d["dataloader"] for d in self.dataloaders if d["mode"] == "validation"]
-        assert len(dls) == 1
-        return dls[0]
+        assert len(dls) <= 1
+        if len(dls):
+            return dls[0]
+        else:
+            return None
 
     def test_dataloader(self):
         dls = [d["dataloader"] for d in self.dataloaders if d["mode"] == "test"]
-        assert len(dls) == 1
-        return dls[0]
+        assert len(dls) <= 1
+        if len(dls):
+            return dls[0]
+        else:
+            return None

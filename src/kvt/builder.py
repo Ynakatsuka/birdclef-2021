@@ -113,14 +113,23 @@ def build_model(config):
 
 def build_optimizer(config, model=None, **kwargs):
     # for specific optimizers that needs "base optimizer"
-    if config.trainer.optimizer.name in ("AGC"):
-        optimizer = build_from_config(
+    if config.trainer.optimizer.name == "AGC":
+        # optimizer: instance
+        base_optimizer = build_from_config(
             config.trainer.optimizer.params.base, OPTIMIZERS, default_args=kwargs
         )
         optimizer = getattr(kvt.optimizers, config.trainer.optimizer.name)(
             model.parameters(),
-            optimizer,
+            base_optimizer,
             model=model,
+            **{k: v for k, v in config.trainer.optimizer.params.items() if k != "base"},
+        )
+    elif config.trainer.optimizer.name == "SAM":
+        # optimizer: class
+        base_optimizer = OPTIMIZERS.get(config.trainer.optimizer.params.base.name)
+        optimizer = getattr(kvt.optimizers, config.trainer.optimizer.name)(
+            model.parameters(),
+            base_optimizer,
             **{k: v for k, v in config.trainer.optimizer.params.items() if k != "base"},
         )
     else:
