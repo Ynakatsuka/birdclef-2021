@@ -105,6 +105,7 @@ def register_torch_modules():
         kvt.losses.DiceLoss,
         kvt.losses.FocalLoss,
         kvt.losses.BinaryFocalLoss,
+        kvt.losses.BCEWithLogitsLossAndIgnoreIndex,
         kvt.losses.LovaszSoftmaxLoss,
         kvt.losses.LovaszHingeLoss,
         kvt.losses.OUSMLoss,
