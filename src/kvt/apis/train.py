@@ -161,10 +161,16 @@ def run(config):
     if not config.trainer.skip_training:
         trainer.fit(lightning_module)
         path = trainer.checkpoint_callback.best_model_path
-        # copy best model
-        subprocess.run(
-            f"mv {path} {best_model_path}", shell=True, stdout=PIPE, stderr=PIPE
-        )
+        if path:
+            # copy best model
+            subprocess.run(
+                f"mv {path} {best_model_path}", shell=True, stdout=PIPE, stderr=PIPE
+            )
+        # if there is no best_model_path
+        # e.g. no valid dataloader
+        else:
+            print("Save current trainer...")
+            trainer.save_checkpoint(best_model_path)
 
     # log best model
     if hasattr(logger, "log_hyperparams"):
