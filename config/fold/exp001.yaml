@@ -1,0 +1,7 @@
+# @package _group_
+csv_filename: 'train_fold_v001.csv'
+fold:
+  _target_: sklearn.model_selection.StratifiedKFold # src.kvt.utils.MultilabelStratifiedGroupKFold
+  n_splits: 5
+  random_state: 666
+  shuffle: True

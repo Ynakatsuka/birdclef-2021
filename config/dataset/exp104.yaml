@@ -7,18 +7,14 @@ dataset:
     target_column: ${competition.target_column}
     target_unique_values: ${competition.target_unique_values}
     input_dir: ${input_dir}
-    period: 20
+    period: 7
     sample_rate: 32000
     num_fold: 5
-    idx_fold: 0
+    idx_fold: -1
     label_smoothing: 0.005
   splits:
     - mode: 'train'
       split: 'train'
-    - mode: 'validation'
-      split: 'validation'
-    - mode: 'test'
-      split: 'test'
 
 transform:
   name: 'base_audio_transform'

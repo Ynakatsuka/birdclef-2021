@@ -2,19 +2,19 @@
 skip_training: False
 
 train:
-  batch_size: 16
+  batch_size: 32
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 32
+  batch_size: 64
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
 
 trainer:
-  resume_from_checkpoint: # '${save_dir}/models/${experiment_name}/fold_0_epoch=026.ckpt'
-  max_epochs: 35
+  resume_from_checkpoint: #'${save_dir}/models/${experiment_name}/fold_-1_best.ckpt'
+  max_epochs: 20
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
   # amp_backend: 'native'
@@ -28,7 +28,7 @@ trainer:
   benchmark: True
   deterministic: True
   num_sanity_val_steps: 0
-  stochastic_weight_avg: True
+  # stochastic_weight_avg: True
 
 inference:
   input_dir: '${input_dir}/train_soundscapes/'
@@ -50,31 +50,30 @@ callbacks:
     filename: 'fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
 
 model:
-  name: 'SED'
+  name: 'ImageSED'
   params:
     num_classes: 397
     backbone: 
-      name: 'tf_efficientnetv2_m'
+      # name: 'resnest50'
+      name: 'nfnetl0'
       params:
-        in_chans: 2
+        in_chans: 1
         pretrained: True
     n_fft: 2048
     hop_length: 512
     sample_rate: ${dataset.dataset.params.sample_rate}
     n_mels: 128
-    fmin: 20
+    fmin: 0
     fmax: 16000
-    dropout_rate: 0.25
-    time_drop_width: 64
-    time_stripes_num: 2
-    freq_drop_width: 8
-    freq_stripes_num: 2
-    spec_augmentation_method: 'cm'
-    use_gru_layer: True
-    use_spectral_centroid: True
+    # dropout_rate: 0.25
+    # time_drop_width: 64
+    # time_stripes_num: 2
+    # freq_drop_width: 8
+    # freq_stripes_num: 2
+    # spec_augmentation_method: 'cm'
 
 loss:
-  name: 'BCEFocal2WayLossHook'
+  name: 'BCEWithLogitsLoss'
 
 metrics: 
   f1_30:
@@ -91,25 +90,26 @@ metrics:
       threshold: 0.7
   mAP:
     name: 'mAP'
-  rc_50:
-    name: 'rowwise_micro_recall'
-    params:
-      threshold: 0.5
-  pr_50:
-    name: 'rowwise_micro_precision'
-    params:
-      threshold: 0.5
+  # rc_50:
+  #   name: 'rowwise_micro_recall'
+  #   params:
+  #     threshold: 0.5
+  # pr_50:
+  #   name: 'rowwise_micro_precision'
+  #   params:
+  #     threshold: 0.5
 
 optimizer:
-  name: 'RAdam'
+  name: 'Adam'
   params:
-    lr: 0.001
-    weight_decay: 0.01
+    lr: 8e-4
+    # weight_decay: 0.01
 
 scheduler:
   name: 'CosineAnnealingLR'
   params:
-    T_max: 10
+    T_max: 20
+    eta_min: 1e-5
 
 lightning_module: 
   name: 'LightningModuleBase'
@@ -119,4 +119,4 @@ lightning_module:
 
 hooks:
   post_forward: 
-    name: KeySelectPostForwardHook
+    name: SigmoidPostForwardHook

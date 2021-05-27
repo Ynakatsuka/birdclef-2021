@@ -2,12 +2,12 @@
 skip_training: False
 
 train:
-  batch_size: 16
+  batch_size: 32
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 32
+  batch_size: 64
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
@@ -54,7 +54,7 @@ model:
   params:
     num_classes: 397
     backbone: 
-      name: 'tf_efficientnetv2_m'
+      name: 'densenet121'
       params:
         in_chans: 2
         pretrained: True

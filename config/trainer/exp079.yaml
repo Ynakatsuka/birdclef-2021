@@ -74,7 +74,7 @@ model:
     use_spectral_centroid: True
 
 loss:
-  name: 'BCEFocal2WayLossHook'
+  name: 'BCE2WayLossHook'
 
 metrics: 
   f1_30:
@@ -104,7 +104,6 @@ optimizer:
   name: 'RAdam'
   params:
     lr: 0.001
-    weight_decay: 0.01
 
 scheduler:
   name: 'CosineAnnealingLR'
