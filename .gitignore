@@ -3,6 +3,7 @@
 # Kaggle
 input/*
 data/*
+old/
 logs/
 notebook/
 submission/*
