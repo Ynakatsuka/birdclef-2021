@@ -28,7 +28,7 @@ trainer:
   benchmark: True
   deterministic: True
   num_sanity_val_steps: 0
-  # stochastic_weight_avg: True
+  stochastic_weight_avg: True
 
 inference:
   input_dir: '${input_dir}/train_soundscapes/'

@@ -54,8 +54,7 @@ model:
   params:
     num_classes: 397
     backbone: 
-      # name: 'resnest50'
-      name: 'nfnet_l0'
+      name: 'tf_efficientnet_b6_ns'
       params:
         in_chans: 1
         pretrained: True
