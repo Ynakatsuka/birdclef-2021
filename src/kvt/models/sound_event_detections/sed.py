@@ -171,6 +171,7 @@ class SED(nn.Module):
         num_multisample_dropout=5,
         pooling_kernel_size=3,
         apply_dropout_second=False,
+        use_batch_norm=True,
         **params,
     ):
         super().__init__()
@@ -190,6 +191,7 @@ class SED(nn.Module):
         self.num_multisample_dropout = num_multisample_dropout
         self.pooling_kernel_size = pooling_kernel_size
         self.apply_dropout_second = apply_dropout_second
+        self.use_batch_norm = use_batch_norm
 
         # Spectrogram extractor
         self.spectrogram_extractor = Spectrogram(
@@ -292,9 +294,11 @@ class SED(nn.Module):
         # logmel
         x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
         frames_num = x.shape[2]
-        x = x.transpose(1, 3).contiguous()
-        x = self.bn0(x)
-        x = x.transpose(1, 3).contiguous()
+
+        if self.use_batch_norm:
+            x = x.transpose(1, 3).contiguous()
+            x = self.bn0(x)
+            x = x.transpose(1, 3).contiguous()
 
         if (
             self.training
@@ -850,6 +854,7 @@ class ImageSED(nn.Module):
         # normalize
         x = self.mono_to_color(x) / 255
 
+        # x = F.interpolate(x, (384, 384))
         # to color
         # x = x.repeat(1, 3, 1, 1)
 
