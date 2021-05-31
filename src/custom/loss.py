@@ -56,7 +56,7 @@ class BCE2WayLossHook(BCEFocal2WayLossHook):
     def __init__(self, weights=[1, 1], class_weights=None, gamma=2):
         super().__init__()
 
-        self.focal = nn.BCEWithLogitsLoss(pos_weight=class_weights, gamma=gamma)
+        self.focal = nn.BCEWithLogitsLoss(pos_weight=class_weights)
         self.weights = weights
 
 

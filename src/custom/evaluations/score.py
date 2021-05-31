@@ -17,7 +17,7 @@ def rowwise_micro_f1(
     threshold=0.5,
 ):
     pred = pred > threshold
-    score = f1_score(target, pred, average="samples")
+    score = f1_score(target, pred, average="samples", zero_division=1)
     return score
 
 
@@ -28,7 +28,7 @@ def rowwise_micro_precision(
     threshold=0.5,
 ):
     pred = pred > threshold
-    score = precision_score(target, pred, average="samples")
+    score = precision_score(target, pred, average="samples", zero_division=1)
     return score
 
 
@@ -39,7 +39,7 @@ def rowwise_micro_recall(
     threshold=0.5,
 ):
     pred = pred > threshold
-    score = recall_score(target, pred, average="samples")
+    score = recall_score(target, pred, average="samples", zero_division=1)
     return score
 
 
