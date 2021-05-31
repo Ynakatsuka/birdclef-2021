@@ -15,7 +15,7 @@ evaluation:
 
 trainer:
   resume_from_checkpoint: # '${save_dir}/models/${experiment_name}/fold_0_epoch=014.ckpt'
-  max_epochs: 20
+  max_epochs: 18
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
   # amp_backend: 'native'
@@ -57,7 +57,7 @@ model:
     wave2vec_model_name: 'facebook/wav2vec2-base-960h'
 
 loss:
-  name: 'BCEWithLogitsLoss'
+  name: 'BinaryFocalLoss'
 
 metrics: 
   f1_30:
@@ -84,16 +84,16 @@ metrics:
   #     threshold: 0.5
 
 optimizer:
-  name: 'Adam'
+  name: 'RAdam'
   params:
-    lr: 8e-4
+    lr: 1e-3
     # weight_decay: 0.01
 
 scheduler:
-  name: 'CosineAnnealingLR'
-  params:
-    T_max: 20
-    eta_min: 1e-5
+  # name: 'CosineAnnealingLR'
+  # params:
+  #   T_max: 20
+  #   eta_min: 1e-5
 
 lightning_module: 
   name: 'LightningModuleBase'

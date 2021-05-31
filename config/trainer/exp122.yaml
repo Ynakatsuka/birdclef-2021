@@ -14,7 +14,7 @@ evaluation:
 
 trainer:
   resume_from_checkpoint: #'${save_dir}/models/${experiment_name}/fold_2_best.ckpt'
-  max_epochs: 20
+  max_epochs: 35
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
   # amp_backend: 'native'
@@ -28,7 +28,7 @@ trainer:
   benchmark: True
   deterministic: True
   num_sanity_val_steps: 0
-  stochastic_weight_avg: True
+  # stochastic_weight_avg: True
 
 inference:
   input_dir: '${input_dir}/train_soundscapes/'
@@ -62,7 +62,7 @@ model:
     n_fft: 2048
     hop_length: 600
     sample_rate: ${dataset.dataset.params.sample_rate}
-    n_mels: 400
+    n_mels: 128
     fmin: 0
     fmax: 16000
     dropout_rate: 0.25
@@ -73,7 +73,7 @@ model:
     # spec_augmentation_method: 'cm'
 
 loss:
-  name: 'BCEWithLogitsLoss'
+  name: 'BinaryFocalLoss'
 
 metrics: 
   f1_30:
@@ -106,10 +106,10 @@ optimizer:
     # weight_decay: 0.01
 
 scheduler:
-  name: 'CosineAnnealingLR'
-  params:
-    T_max: 20
-    eta_min: 1e-5
+#   name: 'CosineAnnealingLR'
+#   params:
+#     T_max: 20
+#     eta_min: 1e-5
 
 lightning_module: 
   name: 'LightningModuleBase'
