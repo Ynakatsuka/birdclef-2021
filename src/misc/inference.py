@@ -30,10 +30,11 @@ LON_DICT = {"COL": -75.85, "COR": -84.51, "SNE": -119.95, "SSW": -76.45}
 
 
 class TestDataset(Dataset):
-    def __init__(self, df: pd.DataFrame, clip: np.ndarray, transforms=None):
+    def __init__(self, df: pd.DataFrame, clip: np.ndarray, transforms=None, duration=5):
         self.df = df
         self.clip = clip
         self.transforms = transforms
+        self.duration = duration
 
     def __len__(self):
         return len(self.df)
@@ -43,7 +44,7 @@ class TestDataset(Dataset):
         sample = self.df.loc[idx, :]
 
         end_seconds = int(sample.seconds)
-        start_seconds = int(end_seconds - 5)
+        start_seconds = int(end_seconds - self.duration)
 
         start_index = SR * start_seconds
         end_index = SR * end_seconds

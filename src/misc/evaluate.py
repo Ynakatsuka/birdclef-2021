@@ -76,9 +76,6 @@ def build_test_dataloaders(config):
         default_args=transform_configs,
     )
 
-    dataloaders = []
-    ids = []
-
     data_dir = os.path.join(
         config.trainer.inference.input_dir,
         "*.ogg",
@@ -163,7 +160,11 @@ def run(config):
 
     # load best checkpoint
     dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
-    filename = f"fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
+    if isinstance(OmegaConf.to_container(config.dataset.dataset), list):
+        idx_fold = config.dataset.dataset[0].params.idx_fold
+    else:
+        idx_fold = config.dataset.dataset.params.idx_fold
+    filename = f"fold_{idx_fold}_best.ckpt"
     best_model_path = os.path.join(dir_path, filename)
 
     state_dict = torch.load(best_model_path)["state_dict"]
