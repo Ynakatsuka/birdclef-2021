@@ -12,5 +12,5 @@ services:
     working_dir: /home/working
     ports:
       - 8899:8899
-    shm_size: 64gb
+    shm_size: 96gb
     command: jupyter notebook --ip=0.0.0.0 --allow-root --no-browser --port 8899
