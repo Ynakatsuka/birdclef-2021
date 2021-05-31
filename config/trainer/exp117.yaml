@@ -2,18 +2,18 @@
 skip_training: False
 
 train:
-  batch_size: 8
+  batch_size: 32
   backbone_lr_ratio:
   encoder_lr_ratio:
 
 evaluation:
-  batch_size: 16
+  batch_size: 64
   save_prediction: True
   dirpath: '${save_dir}/predictions/oof/'
-  name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
+  name: '${experiment_name}_fold_-1.npy'
 
 trainer:
-  resume_from_checkpoint: # '${save_dir}/models/${experiment_name}/fold_0_epoch=026.ckpt'
+  resume_from_checkpoint: # '${save_dir}/models/${experiment_name}/fold_-1_epoch=014.ckpt'
   max_epochs: 35
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
@@ -33,7 +33,8 @@ trainer:
 inference:
   input_dir: '${input_dir}/train_soundscapes/'
   dirpath: '${save_dir}/predictions/'
-  filename: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.pkl'
+  filename: '${experiment_name}_fold_-1.pkl'
+
 logger:
   _target_: pytorch_lightning.loggers.WandbLogger
   project: ${project}
@@ -43,67 +44,69 @@ logger:
 callbacks:
   ModelCheckpoint:
     _target_: pytorch_lightning.callbacks.ModelCheckpoint
-    monitor: 'val_loss'
+    monitor: 'val_s_f1_50'
+    mode: max
     save_last: False
     save_top_k: 1
     dirpath: '${save_dir}/models/${experiment_name}'
-    filename: 'fold_${dataset.dataset.params.idx_fold}_{epoch:03d}'
+    filename: 'fold_-1_{epoch:03d}'
 
 model:
   name: 'SED'
   params:
     num_classes: 397
     backbone: 
-      name: 'tf_efficientnetv2_m'
+      name: 'tf_efficientnet_b0_ns'
       params:
-        in_chans: 2
+        in_chans: 3
         pretrained: True
     n_fft: 2048
     hop_length: 512
-    sample_rate: ${dataset.dataset.params.sample_rate}
+    sample_rate: 32000
     n_mels: 128
     fmin: 20
     fmax: 16000
-    dropout_rate: 0.25
+    dropout_rate: 0.4
     time_drop_width: 64
     time_stripes_num: 2
     freq_drop_width: 8
     freq_stripes_num: 2
     spec_augmentation_method: 'cm'
     use_gru_layer: True
-    use_spectral_centroid: True
+    apply_delta_spectrum: True
 
 loss:
-  name: 'BCE2WayLossHook'
+  name: 'BCEFocal2WayLossHook'
 
 metrics: 
-  f1_30:
+  s_f1_30:
     name: 'rowwise_micro_f1'
     params:
       threshold: 0.3
-  f1_50:
+  s_f1_50:
     name: 'rowwise_micro_f1'
     params:
       threshold: 0.5
-  f1_70:
+  s_f1_70:
     name: 'rowwise_micro_f1'
     params:
       threshold: 0.7
   mAP:
     name: 'mAP'
-  rc_50:
-    name: 'rowwise_micro_recall'
-    params:
-      threshold: 0.5
-  pr_50:
-    name: 'rowwise_micro_precision'
-    params:
-      threshold: 0.5
+  # rc_50:
+  #   name: 'rowwise_micro_recall'
+  #   params:
+  #     threshold: 0.5
+  # pr_50:
+  #   name: 'rowwise_micro_precision'
+  #   params:
+  #     threshold: 0.5
 
 optimizer:
   name: 'RAdam'
   params:
     lr: 0.001
+    weight_decay: 0.01
 
 scheduler:
   name: 'CosineAnnealingLR'

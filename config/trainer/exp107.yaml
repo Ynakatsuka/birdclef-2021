@@ -64,6 +64,7 @@ model:
     n_mels: 128
     fmin: 0
     fmax: 16000
+    # apply_tta: True
     # dropout_rate: 0.25
     # time_drop_width: 64
     # time_stripes_num: 2
