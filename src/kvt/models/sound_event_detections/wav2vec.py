@@ -10,10 +10,11 @@ class Wav2VecSequenceClassification(nn.Module):
         super().__init__()
 
         self.wav2vec2 = Wav2Vec2Model.from_pretrained(wave2vec_model_name)
+        # for param in self.wav2vec2.modules():
+        # param.requires_grad = False
+
         self.classifier = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(True),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(hidden_size, num_classes),
         )
 
