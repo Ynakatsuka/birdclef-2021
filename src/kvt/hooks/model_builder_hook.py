@@ -16,13 +16,18 @@ from omegaconf import OmegaConf
 def analyze_in_features(model):
     if hasattr(model, "classifier"):
         in_features = model.classifier.in_features
+    elif hasattr(model, "classif"):
+        in_features = model.classif.in_features
     elif hasattr(model, "fc"):
         in_features = model.fc.in_features
     elif hasattr(model, "last_linear"):
         in_features = model.last_linear.in_features
     elif hasattr(model, "head"):
         if hasattr(model.head, "fc"):
-            in_features = model.head.fc.in_features
+            if hasattr(model.head.fc, "in_features"):
+                in_features = model.head.fc.in_features
+            else:
+                in_features = model.head.fc.in_channels
         else:
             in_features = model.head.in_features
     else:
@@ -39,12 +44,6 @@ def replace_last_linear(
     use_seblock=False,
     use_identity_as_last_layer=False,
 ):
-    # default args
-    if dropout_rate is None:
-        dropout_rate = 0.5
-    if use_seblock is None:
-        use_seblock = False
-
     # replace pooling
     def replace_pooling_layer(original, layer_name):
         fc_input_shape_ratio = 1
@@ -141,8 +140,11 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
         #######################################################################
         # sound event detection models
         #######################################################################
-        if "SED" in config.name:
+        elif "SED" in config.name:
             model = self.build_sound_event_detection_model(config)
+
+        elif "Wav2Vec" in config.name:
+            model = build_from_config(config, MODELS)
 
         #######################################################################
         # segmentation models
@@ -222,14 +224,16 @@ class DefaultModelBuilderHook(ModelBuilderHookBase):
 
         # Image Classification
         if "Image" in config.name:
+            # TODO: add other params
             backbone = replace_last_linear(
                 backbone,
                 num_classes=config.params.num_classes,
                 pool_type="gem",
+                dropout_rate=0.25,
             )
         # Normal SED
         else:
-            # TODO: bug fix
+            # TODO: fix
             if config.params.backbone.name == "resnest50":
                 layers = list(backbone.children())[:-2]
                 backbone = nn.Sequential(*layers)

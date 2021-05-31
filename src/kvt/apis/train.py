@@ -1,16 +1,11 @@
 import copy
 import os
 import subprocess
-from collections import defaultdict
 from subprocess import PIPE
 
-import hydra
 import kvt.utils
-import numpy as np
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
-from easydict import EasyDict as edict
 from kvt.builder import (
     build_callbacks,
     build_dataloaders,
@@ -27,7 +22,6 @@ from kvt.builder import (
 from kvt.evaluate import evaluate
 from omegaconf import OmegaConf, open_dict
 from pytorch_lightning.plugins import DDPPlugin
-from tqdm import tqdm
 
 
 def train_last_linear(config, model, hooks, logger):
@@ -142,13 +136,22 @@ def run(config):
     if hasattr(config.trainer.trainer, "accelerator") and (
         config.trainer.trainer.accelerator in ("ddp", "ddp2")
     ):
-        plugins.append(
-            DDPPlugin(find_unused_parameters=False),
-        )
+        if hasattr(config.trainer, "find_unused_parameters"):
+            plugins.append(
+                DDPPlugin(find_unused_parameters=config.trainer.find_unused_parameters),
+            )
+        else:
+            plugins.append(
+                DDPPlugin(find_unused_parameters=False),
+            )
 
     # best model path
     dir_path = config.trainer.callbacks.ModelCheckpoint.dirpath
-    filename = f"fold_{config.dataset.dataset.params.idx_fold}_best.ckpt"
+    if isinstance(OmegaConf.to_container(config.dataset.dataset), list):
+        idx_fold = config.dataset.dataset[0].params.idx_fold
+    else:
+        idx_fold = config.dataset.dataset.params.idx_fold
+    filename = f"fold_{idx_fold}_best.ckpt"
     best_model_path = os.path.join(dir_path, filename)
 
     # train loop
@@ -162,6 +165,8 @@ def run(config):
         trainer.fit(lightning_module)
         path = trainer.checkpoint_callback.best_model_path
         if path:
+            print(f"Best model: {path}")
+            print("Renaming...")
             # copy best model
             subprocess.run(
                 f"mv {path} {best_model_path}", shell=True, stdout=PIPE, stderr=PIPE
@@ -169,7 +174,7 @@ def run(config):
         # if there is no best_model_path
         # e.g. no valid dataloader
         else:
-            print("Save current trainer...")
+            print("Saving current trainer...")
             trainer.save_checkpoint(best_model_path)
 
     # log best model
@@ -190,7 +195,7 @@ def run(config):
 
         lightning_module.model.load_state_dict(state_dict)
     else:
-        print(f"best model {best_model_path} does not exist")
+        print(f"Best model {best_model_path} does not exist.")
 
     # evaluate
     metric_dict = evaluate(lightning_module, hooks, config, mode=["validation"])

@@ -8,7 +8,10 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 import torch
-from scipy import interpolate
+from transformers import Wav2Vec2Processor
+
+LAT_DICT = {"COL": 5.57, "COR": 10.12, "SNE": 38.49, "SSW": 42.47}
+LON_DICT = {"COL": -75.85, "COR": -84.51, "SNE": -119.95, "SSW": -76.45}
 
 
 @kvt.DATASETS.register
@@ -35,6 +38,7 @@ class WaveformDataset(torch.utils.data.Dataset):
         external_datadir=None,
         nocall_replace_probability=0,
         label_smoothing=0,
+        images_dir=None,
         **params,
     ):
         self.image_column = image_column
@@ -60,10 +64,13 @@ class WaveformDataset(torch.utils.data.Dataset):
         # load
         df = pd.read_csv(os.path.join(input_dir, csv_filename))
 
-        if self.split == "validation":
-            df = df[df.Fold == self.idx_fold]
-        elif self.split == "train":
-            df = df[df.Fold != self.idx_fold]
+        if "Fold" in df.columns:
+            if self.split == "validation":
+                df = df[df.Fold == self.idx_fold]
+            elif self.split == "train":
+                df = df[df.Fold != self.idx_fold]
+        else:
+            print('Thire is no "Fold" column in DataFrame.')
 
         self.image_filenames = df[self.image_column].tolist()
         self.targets = df[self.target_column].tolist()
@@ -103,10 +110,13 @@ class WaveformDataset(torch.utils.data.Dataset):
             assert len(self.nocall_paths) > 0
 
         # image dir
-        if self.split == "test":
-            self.images_dir = "train_soundscapes_clipped"
+        if images_dir is None:
+            if self.split == "test":
+                self.images_dir = "train_soundscapes_clipped"
+            else:
+                self.images_dir = "train_short_audio"
         else:
-            self.images_dir = "train_short_audio"
+            self.images_dir = images_dir
 
     def __len__(self):
         return len(self.targets)
@@ -114,6 +124,7 @@ class WaveformDataset(torch.utils.data.Dataset):
     def _preprocess_input(self, x, sr):
         len_x = len(x)
         effective_length = sr * self.period
+        start = 0
         if len_x < effective_length:
             new_x = np.zeros(effective_length, dtype=x.dtype)
             if self.split == "train":
@@ -144,7 +155,9 @@ class WaveformDataset(torch.utils.data.Dataset):
             smoothing = 0
 
         labels = np.zeros(len(self.target_unique_values), dtype="float32") + smoothing
-        labels[self.target_unique_values.index(y)] = 1.0 - smoothing
+        if y != "nocall":
+            for yy in y.split(" "):
+                labels[self.target_unique_values.index(yy)] = 1.0 - smoothing
         if (secondary_y is not None) and (self.split == "train"):
             for sy in secondary_y:
                 if sy in self.target_unique_values:
@@ -169,14 +182,22 @@ class WaveformDataset(torch.utils.data.Dataset):
             x, sr = librosa.load(self.nocall_paths[i], sr=self.sample_rate)
         else:
             ebird_code = self.targets[idx]
-            x, sr = sf.read(
-                os.path.join(
-                    self.input_dir,
-                    self.images_dir,
-                    ebird_code,
-                    self.image_filenames[idx],
-                )
+            path = os.path.join(
+                self.input_dir,
+                self.images_dir,
+                ebird_code,
+                self.image_filenames[idx],
             )
+            if os.path.exists(path):
+                x, sr = sf.read(path)
+            else:
+                x, sr = sf.read(
+                    os.path.join(
+                        self.input_dir,
+                        self.images_dir,
+                        self.image_filenames[idx],
+                    )
+                )
 
         x, start = self._preprocess_input(x, sr)
 
@@ -526,6 +547,198 @@ class WaveformDatasetWith2020CompetitionData(WaveformDataset):
             ebird_code = ebird_codes[0]
             secondary_ebird_code = ebird_codes[1:]
             y = self._preprocess_target(ebird_code, secondary_ebird_code)
+
+        input_ = {"x": x, "y": y}
+
+        return input_
+
+
+@kvt.DATASETS.register
+class WaveformDatasetWithDist(WaveformDataset):
+    def __init__(
+        self,
+        csv_filename,
+        image_column,
+        target_column,
+        target_unique_values,
+        input_dir,
+        split="train",
+        transform=None,
+        sample_rate=32000,
+        period=20,
+        num_fold=5,
+        idx_fold=0,
+        secondary_target_column=None,
+        secondary_coef=1,
+        addtional_numerical_columns=None,
+        addtional_target_columns=None,
+        use_head_or_tail=False,
+        use_external_data_as_nocall=False,
+        external_datadir=None,
+        nocall_replace_probability=0,
+        label_smoothing=0,
+        images_dir=None,
+        max_distance=50,
+        **params,
+    ):
+        self.image_column = image_column
+        self.target_column = target_column
+        self.target_unique_values = target_unique_values
+        self.input_dir = input_dir
+        self.split = split
+        self.transform = transform
+        self.sample_rate = sample_rate
+        self.period = period
+        self.num_fold = num_fold
+        self.idx_fold = idx_fold
+        self.secondary_target_column = secondary_target_column
+        self.secondary_coef = secondary_coef
+        self.addtional_numerical_columns = addtional_numerical_columns
+        self.addtional_target_columns = addtional_target_columns
+        self.use_head_or_tail = use_head_or_tail
+        self.use_external_data_as_nocall = use_external_data_as_nocall
+        self.external_datadir = external_datadir
+        self.nocall_replace_probability = nocall_replace_probability
+        self.label_smoothing = label_smoothing
+
+        # load
+        df = pd.read_csv(os.path.join(input_dir, csv_filename))
+
+        if "Fold" in df.columns:
+            if self.split == "validation":
+                df = df[df.Fold == self.idx_fold]
+            elif self.split == "train":
+                df = df[df.Fold != self.idx_fold]
+                # dist
+                for k, lat, lon in zip(
+                    LAT_DICT.keys(), LAT_DICT.values(), LON_DICT.values()
+                ):
+                    df[f"dist_to_{k}"] = np.sqrt(
+                        (df["latitude"] - lat) ** 2 + (df["longitude"] - lon) ** 2
+                    )
+                mask = sum(
+                    [df[f"dist_to_{k}"] <= max_distance for k in LAT_DICT.keys()]
+                ).astype(bool)
+                df = df[mask].reset_index(drop=True)
+        else:
+            print('Thire is no "Fold" column in DataFrame.')
+
+        self.image_filenames = df[self.image_column].tolist()
+        self.targets = df[self.target_column].tolist()
+        if self.secondary_target_column is not None:
+            self.secondary_targets = (
+                df[self.secondary_target_column].apply(eval).tolist()
+            )  # lisf of list
+
+        if self.addtional_numerical_columns is not None:
+            self.addtional_numerical_features = (
+                df[self.addtional_numerical_columns].values.astype("float32") / 200
+            )
+
+        if self.addtional_target_columns is not None:
+            if (len(addtional_target_columns) == 1) and (
+                "type" in addtional_target_columns
+            ):
+                df["__target_song__"] = (
+                    df["type"]
+                    .apply(eval)
+                    .apply(lambda x: int(bool(sum([1 for w in x if "song" in w]))))
+                )
+                df["__target_call__"] = (
+                    df["type"]
+                    .apply(eval)
+                    .apply(lambda x: int(bool(sum([1 for w in x if "call" in w]))))
+                )
+                self.addtional_targets = df[
+                    ["__target_song__", "__target_call__"]
+                ].values
+            else:
+                raise ValueError
+
+        if self.use_external_data_as_nocall:
+            self.target_unique_values += ["nocall"]
+            self.nocall_paths = glob.glob(f"{external_datadir}/*.wav")
+            assert len(self.nocall_paths) > 0
+
+        # image dir
+        if images_dir is None:
+            if self.split == "test":
+                self.images_dir = "train_soundscapes_clipped"
+            else:
+                self.images_dir = "train_short_audio"
+        else:
+            self.images_dir = images_dir
+
+
+@kvt.DATASETS.register
+class WaveformDatasetForWav2Vec(WaveformDataset):
+    def __init__(
+        self,
+        csv_filename,
+        image_column,
+        target_column,
+        target_unique_values,
+        input_dir,
+        split="train",
+        transform=None,
+        sample_rate=32000,
+        period=20,
+        num_fold=5,
+        idx_fold=0,
+        secondary_target_column=None,
+        secondary_coef=0.5,
+        addtional_numerical_columns=None,
+        addtional_target_columns=None,
+        use_head_or_tail=False,
+        wave2vec_model_name=None,
+        do_normalize=True,
+        **params,
+    ):
+        super().__init__(
+            csv_filename=csv_filename,
+            image_column=image_column,
+            target_column=target_column,
+            target_unique_values=target_unique_values,
+            input_dir=input_dir,
+            split=split,
+            transform=transform,
+            sample_rate=sample_rate,
+            period=period,
+            num_fold=num_fold,
+            idx_fold=idx_fold,
+            secondary_target_column=secondary_target_column,
+            secondary_coef=secondary_coef,
+            addtional_numerical_columns=addtional_numerical_columns,
+            addtional_target_columns=addtional_target_columns,
+            use_head_or_tail=use_head_or_tail,
+            **params,
+        )
+        self.processor = Wav2Vec2Processor.from_pretrained(
+            wave2vec_model_name,
+            sampling_rate=sample_rate,
+            do_normalize=do_normalize,
+        )
+
+    def __getitem__(self, idx):
+        wav_name = self.image_filenames[idx]
+        ebird_code = self.targets[idx]
+        secondary_ebird_code = None
+
+        x, sr = sf.read(
+            os.path.join(self.input_dir, self.images_dir, ebird_code, wav_name)
+        )
+        x, start = self._preprocess_input(x, sr)
+
+        if self.transform is not None:
+            x = self.transform(x, self.sample_rate)
+        x = np.nan_to_num(x)
+        x = (
+            self.processor(x, sampling_rate=sr, return_tensors="np")
+            .input_values.squeeze()
+            .astype("float32")
+        )
+
+        y = self._preprocess_target(ebird_code, secondary_ebird_code)
 
         input_ = {"x": x, "y": y}
 

@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
-from kvt.augmentation import SpecAugmentationPlusPlus, mixup
-from kvt.models.layers import Flatten, GeM
+from kvt.augmentation import SpecAugmentationPlusPlus
 from torchlibrosa.augmentation import SpecAugmentation
 from torchlibrosa.stft import LogmelFilterBank, Spectrogram
 
@@ -15,6 +14,7 @@ from .audio_features import (
     add_time_encoding,
     make_delta,
 )
+from .conformer import ConformerBlock
 
 
 def init_layer(layer):
@@ -862,3 +862,136 @@ class ImageSED(nn.Module):
         output = self.encoder(x)
 
         return output
+
+
+class ConformerSED(nn.Module):
+    def __init__(
+        self,
+        encoder,
+        in_features,
+        num_classes,
+        n_fft,
+        hop_length,
+        sample_rate,
+        n_mels,
+        fmin,
+        fmax,
+        dropout_rate=0.1,
+        freeze_spectrogram_parameters=True,
+        freeze_logmel_parameters=True,
+        use_spec_augmentation=True,
+        time_drop_width=64,
+        time_stripes_num=2,
+        freq_drop_width=8,
+        freq_stripes_num=2,
+        spec_augmentation_method=None,
+        apply_mixup=False,
+        apply_spec_shuffle=False,
+        spec_shuffle_prob=0,
+        use_gru_layer=False,
+        apply_tta=False,
+        apply_encoder=False,
+        **params,
+    ):
+        super().__init__()
+        self.n_mels = n_mels
+        self.dropout_rate = dropout_rate
+        self.apply_mixup = apply_mixup
+        self.apply_spec_shuffle = apply_spec_shuffle
+        self.spec_shuffle_prob = spec_shuffle_prob
+        self.use_gru_layer = use_gru_layer
+        self.apply_tta = apply_tta
+
+        # Spectrogram extractor
+        self.spectrogram_extractor = Spectrogram(
+            n_fft=n_fft,
+            hop_length=hop_length,
+            win_length=n_fft,
+            window="hann",
+            center=True,
+            pad_mode="reflect",
+            freeze_parameters=freeze_spectrogram_parameters,
+        )
+
+        # Logmel feature extractor
+        self.logmel_extractor = LogmelFilterBank(
+            sr=sample_rate,
+            n_fft=n_fft,
+            n_mels=n_mels,
+            fmin=fmin,
+            fmax=fmax,
+            ref=1.0,
+            amin=1e-10,
+            top_db=None,
+            freeze_parameters=freeze_logmel_parameters,
+            is_log=False,
+        )
+
+        # Spec augmenter
+        self.spec_augmenter = None
+        if use_spec_augmentation and (spec_augmentation_method is None):
+            self.spec_augmenter = SpecAugmentation(
+                time_drop_width=time_drop_width,
+                time_stripes_num=time_stripes_num,
+                freq_drop_width=freq_drop_width,
+                freq_stripes_num=freq_stripes_num,
+            )
+        elif use_spec_augmentation and (spec_augmentation_method is not None):
+            self.spec_augmenter = SpecAugmentationPlusPlus(
+                time_drop_width=time_drop_width,
+                time_stripes_num=time_stripes_num,
+                freq_drop_width=freq_drop_width,
+                freq_stripes_num=freq_stripes_num,
+                method=spec_augmentation_method,
+            )
+
+        # encoder
+        self.conformer = nn.Sequential(
+            *[
+                ConformerBlock(
+                    dim=n_mels,
+                    dim_head=64,
+                    heads=8,
+                    ff_mult=4,
+                    conv_expansion_factor=2,
+                    conv_kernel_size=31,
+                    attn_dropout=dropout_rate,
+                    ff_dropout=dropout_rate,
+                    conv_dropout=dropout_rate,
+                )
+                for _ in range(3)
+            ]
+        )
+
+        self.fc = nn.Sequential(
+            nn.Dropout(dropout_rate),
+            nn.Linear(n_mels, num_classes),
+        )
+
+    def forward(self, input, mixup_lambda=None, mixup_index=None):
+        # (batch_size, 1, time_steps, n_mels)
+        x = self.spectrogram_extractor(input)
+        x = self.logmel_extractor(x)  # (batch_size, 1, time_steps, mel_bins)
+
+        if (
+            self.training
+            and self.apply_spec_shuffle
+            and (np.random.rand() < self.spec_shuffle_prob)
+        ):
+            # (batch_size, 1, time_steps, n_mels)
+            idx = torch.randperm(x.shape[3])
+            x = x[:, :, :, idx]
+
+        if (self.training or self.apply_tta) and (self.spec_augmenter is not None):
+            x = self.spec_augmenter(x)
+
+        # Mixup on spectrogram
+        if self.training and self.apply_mixup and (mixup_lambda is not None):
+            x = do_mixup(x, mixup_lambda, mixup_index)
+
+        x = x.squeeze()  # -> (batch_size, time_steps, n_mels)
+        x = self.conformer(x)  # -> (batch_size, time_steps, n_mels)
+        x = torch.mean(x, dim=1)  # -> (batch_size, n_mels)
+        logit = self.fc(x)  # -> (batch_size, num_classes)
+
+        return logit

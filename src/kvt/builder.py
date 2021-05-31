@@ -25,79 +25,89 @@ from kvt.utils import build_from_config
 
 def build_dataloaders(config):
     dataloaders = []
-    for split_config in config.dataset.dataset.splits:
-        if isinstance(config, DictConfig):
-            split_config = OmegaConf.to_container(split_config, resolve=True)
+    datasets_config = config.dataset.dataset
 
-        if isinstance(config, DictConfig):
-            dataset_config = edict(
-                {
-                    "name": config.dataset.dataset.name,
-                    "params": OmegaConf.to_container(
-                        config.dataset.dataset.params, resolve=True
-                    ),
-                }
-            )
-        else:
-            dataset_config = edict(
-                {
-                    "name": config.dataset.dataset.name,
-                    "params": config.dataset.dataset.params,
-                }
-            )
+    if isinstance(datasets_config, DictConfig):
+        datasets_config = OmegaConf.to_container(datasets_config, resolve=True)
 
-        dataset_config.params.update(split_config)
+    if not isinstance(datasets_config, list):
+        datasets_config = [datasets_config]
 
-        if config.print_config:
-            print("---------------------------------------------------------------")
-            print(f"dataset config: \n {dataset_config}")
+    for dataset_config in datasets_config:
+        dataset_config = edict(dataset_config)
+        for split_config in dataset_config.splits:
+            # if isinstance(split_config, DictConfig):
+            # split_config = OmegaConf.to_container(split_config, resolve=True)
 
-        split = dataset_config.params.split
-        is_train = dataset_config.params.mode == "train"
-        if is_train:
-            batch_size = config.trainer.train.batch_size
-        else:
-            batch_size = config.trainer.evaluation.batch_size
-
-        # build transform
-        transform_configs = {
-            "split": split,
-            "aug_cfg": config.augmentation.get(split),
-        }
-        for p in ["height", "width"]:
-            if hasattr(config.augmentation, p):
-                transform_configs[p] = getattr(config.augmentation, p)
+            if isinstance(dataset_config, DictConfig):
+                cfg = edict(
+                    {
+                        "name": dataset_config.name,
+                        "params": OmegaConf.to_container(
+                            dataset_config.params, resolve=True
+                        ),
+                    }
+                )
             else:
-                print(f"{p} is not in augmentation config")
-        transform = build_from_config(
-            config.dataset.transform,
-            TRANSFORMS,
-            default_args=transform_configs,
-        )
+                cfg = edict(
+                    {
+                        "name": dataset_config.name,
+                        "params": dataset_config.params,
+                    }
+                )
 
-        # build dataset
-        dataset = build_from_config(
-            dataset_config,
-            DATASETS,
-            default_args={"transform": transform, "batch_size": batch_size},
-        )
+            cfg.params.update(split_config)
 
-        dataloader = DataLoader(
-            dataset,
-            shuffle=is_train,
-            batch_size=batch_size,
-            drop_last=False,
-            num_workers=config.dataset.transform.num_preprocessor,
-            pin_memory=True,
-        )
+            if config.print_config:
+                print("---------------------------------------------------------------")
+                print(f"dataset config: \n {cfg}")
 
-        dataloaders.append(
-            {
-                "split": dataset_config.params.split,
-                "mode": dataset_config.params.mode,
-                "dataloader": dataloader,
+            split = cfg.params.split
+            is_train = cfg.params.mode == "train"
+            if is_train:
+                batch_size = config.trainer.train.batch_size
+            else:
+                batch_size = config.trainer.evaluation.batch_size
+
+            # build transform
+            transform_configs = {
+                "split": split,
+                "aug_cfg": config.augmentation.get(split),
             }
-        )
+            for p in ["height", "width"]:
+                if hasattr(config.augmentation, p):
+                    transform_configs[p] = getattr(config.augmentation, p)
+                else:
+                    print(f"{p} is not in augmentation config")
+            transform = build_from_config(
+                config.dataset.transform,
+                TRANSFORMS,
+                default_args=transform_configs,
+            )
+
+            # build dataset
+            dataset = build_from_config(
+                cfg,
+                DATASETS,
+                default_args={"transform": transform, "batch_size": batch_size},
+            )
+
+            dataloader = DataLoader(
+                dataset,
+                shuffle=is_train,
+                batch_size=batch_size,
+                drop_last=False,
+                num_workers=config.dataset.transform.num_preprocessor,
+                pin_memory=True,
+            )
+
+            dataloaders.append(
+                {
+                    "split": cfg.params.split,
+                    "mode": cfg.params.mode,
+                    "dataloader": dataloader,
+                }
+            )
     return dataloaders
 
 
