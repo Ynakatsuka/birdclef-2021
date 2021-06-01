@@ -22,7 +22,7 @@ def gem(x, p=3, eps=1e-6):
 
 
 class GeM(nn.Module):
-    def __init__(self, p=3, inference_p=5, eps=1e-6):
+    def __init__(self, p=3, inference_p=3, eps=1e-6):
         super(GeM, self).__init__()
         self.p = Parameter(torch.ones(1) * p)
         self.inference_p = inference_p
