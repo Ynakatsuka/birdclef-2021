@@ -3,6 +3,28 @@ import pytorch_lightning as pl
 import torch
 
 
+class AutoClip:
+    def __init__(self, percentile=0.25):
+        self.grad_history = []
+        self.percentile = percentile
+
+    def compute_grad_norm(self, model):
+        total_norm = 0
+        for p in model.parameters():
+            if p.grad is not None:
+                param_norm = p.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
+        total_norm = total_norm ** (1.0 / 2)
+
+        return total_norm
+
+    def __call__(self, model):
+        grad_norm = self.compute_grad_norm(model)
+        self.grad_history.append(grad_norm)
+        clip_value = np.percentile(self.grad_history, self.percentile)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), clip_value)
+
+
 class LightningModuleBase(pl.LightningModule):
     def __init__(
         self,
@@ -16,6 +38,8 @@ class LightningModuleBase(pl.LightningModule):
         storong_transform_p=None,
         disable_strong_transform_in_last_epochs=5,
         max_epochs=None,
+        enable_autoclip=False,
+        autoclip_percentile=0.25,
     ):
         super().__init__()
         self.model = model
@@ -30,6 +54,10 @@ class LightningModuleBase(pl.LightningModule):
             disable_strong_transform_in_last_epochs
         )
         self.max_epochs = max_epochs
+        self.enable_autoclip = enable_autoclip
+
+        if self.enable_autoclip:
+            self.autoclip = AutoClip(percentile=autoclip_percentile)
 
         if (
             hasattr(self.hooks, "")
@@ -40,6 +68,12 @@ class LightningModuleBase(pl.LightningModule):
 
     def forward(self, x, **kwargs):
         return self.model(x, **kwargs)
+
+    def backward(self, loss, optimizer, optimizer_idx, *args, **kwargs):
+        if self.automatic_optimization or self._running_manual_backward:
+            loss.backward(*args, **kwargs)
+            if self.enable_autoclip:
+                self.autoclip(self.model)
 
     def training_step(self, batch, batch_nb):
         x, y = batch["x"], batch["y"]
