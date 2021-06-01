@@ -12,3 +12,4 @@ audiomentations>=0.16.0
 colorednoise>=1.1.1
 pandarallel>=1.5.2
 transformers>=4.6.0
+einops>=0.3.0
