@@ -13,7 +13,7 @@ evaluation:
   name: '${experiment_name}_fold_${dataset.dataset.params.idx_fold}.npy'
 
 trainer:
-  resume_from_checkpoint: #'${save_dir}/models/${experiment_name}/fold_2_best.ckpt'
+  resume_from_checkpoint: # '${save_dir}/models/${experiment_name}/fold_3_best.ckpt'
   max_epochs: 20
   check_val_every_n_epoch: 1
   accumulate_grad_batches: 1
